@@ -1,0 +1,214 @@
+msgid ""
+msgstr ""
+"Language: uk\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Fuel prices in Spain"
+msgstr "Ціни на пальне в Іспанії"
+
+msgid "Fuel in Spain"
+msgstr "Пальне в Іспанії"
+
+msgid "Language"
+msgstr "Мова"
+
+msgid "Ministry summary: %{fecha}. %{count} stations in the cache."
+msgstr "Зведення міністерства: %{fecha}. У кеші %{count} станцій."
+
+msgid "All in the province"
+msgstr "Усі в провінції"
+
+msgid "Brand or address"
+msgstr "Бренд або адреса"
+
+msgid "The screen reads only the server cache. A separate process polls the ministry, not this request. A pump price can be lower than a chain-app discount."
+msgstr "Екран читає лише кеш сервера. Міністерство опитує окремий процес, не цей запит. Ціна на колонці може бути нижчою за знижкою застосунку мережі."
+
+msgid "Cheapest"
+msgstr "Найдешевша"
+
+msgid "Median"
+msgstr "Медіана"
+
+msgid "Most expensive"
+msgstr "Найдорожча"
+
+msgid "Stations"
+msgstr "Станцій"
+
+msgid "First %{shown} of %{total} in the table, cheapest first."
+msgstr "У таблиці перші %{shown} з %{total}, від найдешевшої."
+
+msgid "Sign"
+msgstr "Вивіска"
+
+msgid "Gasoline 95 E5"
+msgstr "Бензин 95 E5"
+
+msgid "Gasoline 98 E5"
+msgstr "Бензин 98 E5"
+
+msgid "Filters"
+msgstr "Фільтри"
+
+msgid "Map"
+msgstr "Карта"
+
+msgid "Show on Google Maps"
+msgstr "Показати в Google Maps"
+
+msgid "Desktop catalog of petrol station prices. Data is served from the local cache."
+msgstr "Настільний каталог цін на АЗС. Дані віддаються з локального кешу."
+
+msgid "Province"
+msgstr "Провінція"
+
+msgid "All provinces"
+msgstr "Усі провінції"
+
+msgid "Municipality"
+msgstr "Муніципалітет"
+
+msgid "All municipalities"
+msgstr "Усі муніципалітети"
+
+msgid "Fuel"
+msgstr "Пальне"
+
+msgid "Brand"
+msgstr "Бренд"
+
+msgid "All brands"
+msgstr "Усі бренди"
+
+msgid "Search"
+msgstr "Пошук"
+
+msgid "Address or station"
+msgstr "Адреса або станція"
+
+msgid "Sort"
+msgstr "Сортування"
+
+msgid "Cheapest first"
+msgstr "Спочатку найдешевші"
+
+msgid "Most expensive first"
+msgstr "Спочатку найдорожчі"
+
+msgid "Stations: %{count}"
+msgstr "Станцій: %{count}"
+
+msgid "Prices are loading into the cache."
+msgstr "Ціни завантажуються в кеш."
+
+msgid "The price cache is empty. The hourly update has not succeeded yet."
+msgstr "Кеш цін порожній. Погодинне оновлення ще не вдалося."
+
+msgid "No stations match these filters."
+msgstr "Жодна станція не відповідає цим фільтрам."
+
+msgid "Address"
+msgstr "Адреса"
+
+msgid "Schedule"
+msgstr "Графік"
+
+msgid "Price"
+msgstr "Ціна"
+
+msgid "Previous"
+msgstr "Назад"
+
+msgid "Next"
+msgstr "Далі"
+
+msgid "Page %{page} of %{pages}"
+msgstr "Сторінка %{page} з %{pages}"
+
+msgid "Gasoline 95"
+msgstr "Бензин 95"
+
+msgid "Gasoline 98"
+msgstr "Бензин 98"
+
+msgid "Diesel A"
+msgstr "Дизель A"
+
+msgid "Premium diesel"
+msgstr "Преміум дизель"
+
+msgid "Updated at %{time}"
+msgstr "Оновлено о %{time}"
+
+msgid "Public stations only"
+msgstr "Лише загальнодоступні"
+
+msgid "24 hours"
+msgstr "Цілодобово"
+
+msgid "Closed"
+msgstr "Зачинено"
+
+msgid "Compared with the median"
+msgstr "Порівняно з медіаною"
+
+msgid "Diesel"
+msgstr "Дизель"
+
+msgid "Premium"
+msgstr "Преміум"
+
+msgid "Ministry update %{fecha}. Cached at %{time}."
+msgstr "Оновлення міністерства %{fecha}. У кеші з %{time}."
+
+msgid "Near me"
+msgstr "Поруч зі мною"
+
+msgid "Reset filters"
+msgstr "Скинути фільтри"
+
+msgid "Show more"
+msgstr "Показати ще"
+
+msgid "Showing %{shown} of %{total}, cheapest first."
+msgstr "Показано %{shown} з %{total}, спочатку найдешевші."
+
+msgid "Showing %{shown} of %{total}, nearest first."
+msgstr "Показано %{shown} з %{total}, спочатку найближчі."
+
+msgid "Distance"
+msgstr "Відстань"
+
+msgid "%{distance} km"
+msgstr "%{distance} км"
+
+msgid "Location is unavailable."
+msgstr "Не вдалося визначити місце."
+
+msgid "Charging"
+msgstr "Зарядка"
+
+msgid "Electric vehicle charging"
+msgstr "Зарядки для електромобілів"
+
+msgid "Power"
+msgstr "Потужність"
+
+msgid "Slowest"
+msgstr "Найповільніша"
+
+msgid "Fastest"
+msgstr "Найшвидша"
+
+msgid "Showing %{shown} of %{total}, fastest first."
+msgstr "Показано %{shown} з %{total}, спочатку найшвидші."
+
+msgid "Chargers are loading into the cache."
+msgstr "Зарядки завантажуються в кеш."
+
+msgid "The charging catalog is empty."
+msgstr "Каталог зарядок порожній."
+
+msgid "%{count} connectors"
+msgstr "%{count} роз'єми"

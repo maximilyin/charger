@@ -1,0 +1,497 @@
+/* See the Tailwind configuration guide for advanced usage
+   https://tailwindcss.com/docs/configuration */
+
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/charger_web";
+
+/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
+   The heroicons installation itself is managed by your mix.exs */
+@plugin "../vendor/heroicons";
+
+/* daisyUI Tailwind Plugin. You can update this file by fetching the latest version with:
+   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.js
+   Make sure to look at the daisyUI changelog: https://daisyui.com/docs/changelog/ */
+@plugin "../vendor/daisyui" {
+  themes: false;
+}
+
+/* daisyUI theme plugin. You can update this file by fetching the latest version with:
+  curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.js
+  We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
+  on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
+@plugin "../vendor/daisyui-theme" {
+  name: "dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(30.33% 0.016 252.42);
+  --color-base-200: oklch(25.26% 0.014 253.1);
+  --color-base-300: oklch(20.15% 0.012 254.09);
+  --color-base-content: oklch(97.807% 0.029 256.847);
+  --color-primary: oklch(58% 0.233 277.117);
+  --color-primary-content: oklch(96% 0.018 272.314);
+  --color-secondary: oklch(58% 0.233 277.117);
+  --color-secondary-content: oklch(96% 0.018 272.314);
+  --color-accent: oklch(60% 0.25 292.717);
+  --color-accent-content: oklch(96% 0.016 293.756);
+  --color-neutral: oklch(37% 0.044 257.287);
+  --color-neutral-content: oklch(98% 0.003 247.858);
+  --color-info: oklch(58% 0.158 241.966);
+  --color-info-content: oklch(97% 0.013 236.62);
+  --color-success: oklch(60% 0.118 184.704);
+  --color-success-content: oklch(98% 0.014 180.72);
+  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning-content: oklch(98% 0.022 95.277);
+  --color-error: oklch(58% 0.253 17.585);
+  --color-error-content: oklch(96% 0.015 12.422);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 1.5px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@plugin "../vendor/daisyui-theme" {
+  name: "light";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: oklch(98% 0 0);
+  --color-base-200: oklch(96% 0.001 286.375);
+  --color-base-300: oklch(92% 0.004 286.32);
+  --color-base-content: oklch(21% 0.006 285.885);
+  --color-primary: oklch(70% 0.213 47.604);
+  --color-primary-content: oklch(98% 0.016 73.684);
+  --color-secondary: oklch(55% 0.027 264.364);
+  --color-secondary-content: oklch(98% 0.002 247.839);
+  --color-accent: oklch(0% 0 0);
+  --color-accent-content: oklch(100% 0 0);
+  --color-neutral: oklch(44% 0.017 285.786);
+  --color-neutral-content: oklch(98% 0 0);
+  --color-info: oklch(62% 0.214 259.815);
+  --color-info-content: oklch(97% 0.014 254.604);
+  --color-success: oklch(70% 0.14 182.503);
+  --color-success-content: oklch(98% 0.014 180.72);
+  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning-content: oklch(98% 0.022 95.277);
+  --color-error: oklch(58% 0.253 17.585);
+  --color-error-content: oklch(96% 0.015 12.422);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 1.5px;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* Add variants based on LiveView classes */
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+/* Use the data attribute for dark mode  */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Make LiveView wrapper divs transparent for layout */
+[data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* This file is for your main application CSS */
+
+.catalog-page {
+  --catalog-bg: #f6f1e6;
+  --catalog-ink: #241c16;
+  --catalog-muted: #8a8178;
+  --catalog-soft: #6f675f;
+  --catalog-card: #fefdf8;
+  --catalog-line: #eadfce;
+  --catalog-row: #efe4d4;
+  --catalog-field: #fff;
+  --catalog-field-line: #e3d7c6;
+  --catalog-link: #9b5f23;
+  --catalog-cheap: #1f7a45;
+  --catalog-dear: #a33b32;
+  color-scheme: light;
+  min-height: 100vh;
+  background: var(--catalog-bg);
+  color: var(--catalog-ink);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+}
+
+html[data-theme="dark"] .catalog-page {
+  color-scheme: dark;
+  --catalog-bg: #171412;
+  --catalog-ink: #f6f1e6;
+  --catalog-muted: #b7aea3;
+  --catalog-soft: #c4bbb2;
+  --catalog-card: #241f1b;
+  --catalog-line: #3d342c;
+  --catalog-row: #2e2823;
+  --catalog-field: #1e1a17;
+  --catalog-field-line: #4a4036;
+  --catalog-link: #e0a06a;
+  --catalog-cheap: #7dcea0;
+  --catalog-dear: #e7a196;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .catalog-page {
+    color-scheme: dark;
+    --catalog-bg: #171412;
+    --catalog-ink: #f6f1e6;
+    --catalog-muted: #b7aea3;
+    --catalog-soft: #c4bbb2;
+    --catalog-card: #241f1b;
+    --catalog-line: #3d342c;
+    --catalog-row: #2e2823;
+    --catalog-field: #1e1a17;
+    --catalog-field-line: #4a4036;
+    --catalog-link: #e0a06a;
+    --catalog-cheap: #7dcea0;
+    --catalog-dear: #e7a196;
+  }
+}
+
+.catalog-frame {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 28px 32px 48px;
+}
+
+.catalog-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.catalog-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.catalog-locales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.catalog-locales a {
+  color: var(--catalog-muted);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.catalog-locales a.is-active {
+  color: var(--catalog-ink);
+}
+
+.catalog-top h1 {
+  margin: 0;
+  color: var(--catalog-ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 40px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.catalog-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+  margin-top: 28px;
+}
+
+.catalog-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.catalog-filters label {
+  display: block;
+}
+
+.catalog-filters label span,
+.stat-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--catalog-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fuel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fuel-chip,
+.text-button,
+.show-more {
+  border: 1px solid var(--catalog-field-line);
+  border-radius: 999px;
+  background: var(--catalog-field);
+  color: var(--catalog-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.fuel-chip.is-active,
+.text-button.is-active {
+  border-color: var(--catalog-ink);
+  background: var(--catalog-card);
+  color: var(--catalog-ink);
+}
+
+.catalog-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.geo-error {
+  margin: 0;
+  color: var(--catalog-dear);
+  font-size: 13px;
+}
+
+.show-more {
+  margin-top: 16px;
+}
+
+.catalog-table .distance {
+  color: var(--catalog-soft);
+  white-space: nowrap;
+}
+
+.catalog-filters select,
+.catalog-filters input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--catalog-field-line);
+  border-radius: 8px;
+  background: var(--catalog-field);
+  color: var(--catalog-ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+}
+
+.catalog-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.catalog-stat {
+  border: 1px solid var(--catalog-line);
+  border-radius: 10px;
+  background: var(--catalog-card);
+  padding: 12px 14px 14px;
+}
+
+.stat-value {
+  margin: 8px 0 0;
+  color: var(--catalog-ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.catalog-caption {
+  margin: 14px 0 8px;
+  color: var(--catalog-soft);
+  font-size: 13px;
+}
+
+.catalog-updated {
+  margin: 8px 0 0;
+  color: var(--catalog-muted);
+  font-size: 13px;
+}
+
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.catalog-table th {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--catalog-line);
+  color: var(--catalog-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.catalog-table td {
+  padding: 11px 12px 11px 0;
+  border-bottom: 1px solid var(--catalog-row);
+  vertical-align: top;
+}
+
+.catalog-table .price {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.price-delta {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.price-delta.is-cheap {
+  color: var(--catalog-cheap);
+}
+
+.price-delta.is-dear {
+  color: var(--catalog-dear);
+}
+
+.price-delta.is-same {
+  color: var(--catalog-muted);
+  font-weight: 500;
+}
+
+.fuel-line {
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  margin: 8px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--catalog-line);
+  color: var(--catalog-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.fuel-bit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-right: 8px;
+  padding-right: 8px;
+  border-right: 1px solid var(--catalog-line);
+  white-space: nowrap;
+}
+
+.fuel-bit:last-child {
+  margin-right: 0;
+  padding-right: 0;
+  border-right: none;
+}
+
+.fuel-line .is-current {
+  color: var(--catalog-ink);
+  font-weight: 700;
+}
+
+.catalog-table .brand {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.catalog-table .schedule {
+  color: var(--catalog-soft);
+  white-space: nowrap;
+}
+
+.catalog-table .schedule.is-24h {
+  color: var(--catalog-cheap);
+  font-weight: 700;
+}
+
+.catalog-table tr.is-closed .price-main,
+.catalog-table tr.is-closed .brand {
+  color: var(--catalog-muted);
+}
+
+.catalog-table .map {
+  width: 64px;
+  padding-right: 0;
+  text-align: right;
+}
+
+.catalog-table .map a {
+  display: inline-flex;
+  color: var(--catalog-link);
+  text-decoration: none;
+}
+
+.catalog-table .map a:hover {
+  opacity: 0.7;
+}
+
+.catalog-state {
+  margin-top: 16px;
+  border: 1px solid var(--catalog-line);
+  border-radius: 10px;
+  background: var(--catalog-card);
+  padding: 32px;
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .catalog-frame {
+    padding: 20px 16px 40px;
+  }
+
+  .catalog-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .catalog-top h1 {
+    font-size: 32px;
+  }
+
+  .catalog-body {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .catalog-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .catalog-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-value {
+    font-size: 26px;
+  }
+}

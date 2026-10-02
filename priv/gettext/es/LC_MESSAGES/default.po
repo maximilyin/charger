@@ -1,0 +1,214 @@
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Fuel prices in Spain"
+msgstr "Precios de carburante en España"
+
+msgid "Fuel in Spain"
+msgstr "Carburante en España"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Ministry summary: %{fecha}. %{count} stations in the cache."
+msgstr "Resumen del ministerio: %{fecha}. %{count} estaciones en la caché."
+
+msgid "All in the province"
+msgstr "Todos en la provincia"
+
+msgid "Brand or address"
+msgstr "Marca o dirección"
+
+msgid "The screen reads only the server cache. A separate process polls the ministry, not this request. A pump price can be lower than a chain-app discount."
+msgstr "La pantalla lee solo la caché del servidor. Un proceso aparte consulta al ministerio, no esta petición. El precio del surtidor puede ser menor que el descuento de la app de la cadena."
+
+msgid "Cheapest"
+msgstr "Más barata"
+
+msgid "Median"
+msgstr "Mediana"
+
+msgid "Most expensive"
+msgstr "Más cara"
+
+msgid "Stations"
+msgstr "Estaciones"
+
+msgid "First %{shown} of %{total} in the table, cheapest first."
+msgstr "En la tabla, las %{shown} primeras de %{total}, de la más barata."
+
+msgid "Sign"
+msgstr "Rótulo"
+
+msgid "Gasoline 95 E5"
+msgstr "Gasolina 95 E5"
+
+msgid "Gasoline 98 E5"
+msgstr "Gasolina 98 E5"
+
+msgid "Filters"
+msgstr "Filtros"
+
+msgid "Map"
+msgstr "Mapa"
+
+msgid "Show on Google Maps"
+msgstr "Ver en Google Maps"
+
+msgid "Desktop catalog of petrol station prices. Data is served from the local cache."
+msgstr "Catálogo de escritorio con los precios de las gasolineras. Los datos se sirven desde la caché local."
+
+msgid "Province"
+msgstr "Provincia"
+
+msgid "All provinces"
+msgstr "Todas las provincias"
+
+msgid "Municipality"
+msgstr "Municipio"
+
+msgid "All municipalities"
+msgstr "Todos los municipios"
+
+msgid "Fuel"
+msgstr "Carburante"
+
+msgid "Brand"
+msgstr "Marca"
+
+msgid "All brands"
+msgstr "Todas las marcas"
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid "Address or station"
+msgstr "Dirección o estación"
+
+msgid "Sort"
+msgstr "Orden"
+
+msgid "Cheapest first"
+msgstr "Más baratas primero"
+
+msgid "Most expensive first"
+msgstr "Más caras primero"
+
+msgid "Stations: %{count}"
+msgstr "Estaciones: %{count}"
+
+msgid "Prices are loading into the cache."
+msgstr "Los precios se están cargando en la caché."
+
+msgid "The price cache is empty. The hourly update has not succeeded yet."
+msgstr "La caché de precios está vacía. La actualización horaria todavía no ha tenido éxito."
+
+msgid "No stations match these filters."
+msgstr "Ninguna estación coincide con estos filtros."
+
+msgid "Address"
+msgstr "Dirección"
+
+msgid "Schedule"
+msgstr "Horario"
+
+msgid "Price"
+msgstr "Precio"
+
+msgid "Previous"
+msgstr "Anterior"
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "Page %{page} of %{pages}"
+msgstr "Página %{page} de %{pages}"
+
+msgid "Gasoline 95"
+msgstr "Gasolina 95"
+
+msgid "Gasoline 98"
+msgstr "Gasolina 98"
+
+msgid "Diesel A"
+msgstr "Diésel A"
+
+msgid "Premium diesel"
+msgstr "Diésel premium"
+
+msgid "Updated at %{time}"
+msgstr "Actualizado a las %{time}"
+
+msgid "Public stations only"
+msgstr "Solo públicas"
+
+msgid "24 hours"
+msgstr "24 horas"
+
+msgid "Closed"
+msgstr "Cerrado"
+
+msgid "Compared with the median"
+msgstr "Respecto a la mediana"
+
+msgid "Diesel"
+msgstr "Diésel"
+
+msgid "Premium"
+msgstr "Premium"
+
+msgid "Ministry update %{fecha}. Cached at %{time}."
+msgstr "Actualización del ministerio %{fecha}. En caché a las %{time}."
+
+msgid "Near me"
+msgstr "Cerca de mí"
+
+msgid "Reset filters"
+msgstr "Quitar filtros"
+
+msgid "Show more"
+msgstr "Mostrar más"
+
+msgid "Showing %{shown} of %{total}, cheapest first."
+msgstr "Mostrando %{shown} de %{total}, primero las más baratas."
+
+msgid "Showing %{shown} of %{total}, nearest first."
+msgstr "Mostrando %{shown} de %{total}, primero las más cercanas."
+
+msgid "Distance"
+msgstr "Distancia"
+
+msgid "%{distance} km"
+msgstr "%{distance} km"
+
+msgid "Location is unavailable."
+msgstr "No se pudo obtener la ubicación."
+
+msgid "Charging"
+msgstr "Recarga"
+
+msgid "Electric vehicle charging"
+msgstr "Recarga de vehículos eléctricos"
+
+msgid "Power"
+msgstr "Potencia"
+
+msgid "Slowest"
+msgstr "Más lenta"
+
+msgid "Fastest"
+msgstr "Más rápida"
+
+msgid "Showing %{shown} of %{total}, fastest first."
+msgstr "Mostrando %{shown} de %{total}, primero las más rápidas."
+
+msgid "Chargers are loading into the cache."
+msgstr "Las recargas se están cargando en la caché."
+
+msgid "The charging catalog is empty."
+msgstr "El catálogo de recargas está vacío."
+
+msgid "%{count} connectors"
+msgstr "%{count} conectores"

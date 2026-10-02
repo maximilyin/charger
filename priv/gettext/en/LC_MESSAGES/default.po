@@ -1,0 +1,214 @@
+msgid ""
+msgstr ""
+"Language: en\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Fuel prices in Spain"
+msgstr "Fuel prices in Spain"
+
+msgid "Fuel in Spain"
+msgstr "Fuel in Spain"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Ministry summary: %{fecha}. %{count} stations in the cache."
+msgstr "Ministry summary: %{fecha}. %{count} stations in the cache."
+
+msgid "All in the province"
+msgstr "All in the province"
+
+msgid "Brand or address"
+msgstr "Brand or address"
+
+msgid "The screen reads only the server cache. A separate process polls the ministry, not this request. A pump price can be lower than a chain-app discount."
+msgstr "The screen reads only the server cache. A separate process polls the ministry, not this request. A pump price can be lower than a chain-app discount."
+
+msgid "Cheapest"
+msgstr "Cheapest"
+
+msgid "Median"
+msgstr "Median"
+
+msgid "Most expensive"
+msgstr "Most expensive"
+
+msgid "Stations"
+msgstr "Stations"
+
+msgid "First %{shown} of %{total} in the table, cheapest first."
+msgstr "First %{shown} of %{total} in the table, cheapest first."
+
+msgid "Sign"
+msgstr "Sign"
+
+msgid "Gasoline 95 E5"
+msgstr "Gasoline 95 E5"
+
+msgid "Gasoline 98 E5"
+msgstr "Gasoline 98 E5"
+
+msgid "Filters"
+msgstr "Filters"
+
+msgid "Map"
+msgstr "Map"
+
+msgid "Show on Google Maps"
+msgstr "Show on Google Maps"
+
+msgid "Desktop catalog of petrol station prices. Data is served from the local cache."
+msgstr "Desktop catalog of petrol station prices. Data is served from the local cache."
+
+msgid "Province"
+msgstr "Province"
+
+msgid "All provinces"
+msgstr "All provinces"
+
+msgid "Municipality"
+msgstr "Municipality"
+
+msgid "All municipalities"
+msgstr "All municipalities"
+
+msgid "Fuel"
+msgstr "Fuel"
+
+msgid "Brand"
+msgstr "Brand"
+
+msgid "All brands"
+msgstr "All brands"
+
+msgid "Search"
+msgstr "Search"
+
+msgid "Address or station"
+msgstr "Address or station"
+
+msgid "Sort"
+msgstr "Sort"
+
+msgid "Cheapest first"
+msgstr "Cheapest first"
+
+msgid "Most expensive first"
+msgstr "Most expensive first"
+
+msgid "Stations: %{count}"
+msgstr "Stations: %{count}"
+
+msgid "Prices are loading into the cache."
+msgstr "Prices are loading into the cache."
+
+msgid "The price cache is empty. The hourly update has not succeeded yet."
+msgstr "The price cache is empty. The hourly update has not succeeded yet."
+
+msgid "No stations match these filters."
+msgstr "No stations match these filters."
+
+msgid "Address"
+msgstr "Address"
+
+msgid "Schedule"
+msgstr "Schedule"
+
+msgid "Price"
+msgstr "Price"
+
+msgid "Previous"
+msgstr "Previous"
+
+msgid "Next"
+msgstr "Next"
+
+msgid "Page %{page} of %{pages}"
+msgstr "Page %{page} of %{pages}"
+
+msgid "Gasoline 95"
+msgstr "Gasoline 95"
+
+msgid "Gasoline 98"
+msgstr "Gasoline 98"
+
+msgid "Diesel A"
+msgstr "Diesel A"
+
+msgid "Premium diesel"
+msgstr "Premium diesel"
+
+msgid "Updated at %{time}"
+msgstr "Updated at %{time}"
+
+msgid "Public stations only"
+msgstr "Public stations only"
+
+msgid "24 hours"
+msgstr "24 hours"
+
+msgid "Closed"
+msgstr "Closed"
+
+msgid "Compared with the median"
+msgstr "Compared with the median"
+
+msgid "Diesel"
+msgstr "Diesel"
+
+msgid "Premium"
+msgstr "Premium"
+
+msgid "Ministry update %{fecha}. Cached at %{time}."
+msgstr "Ministry update %{fecha}. Cached at %{time}."
+
+msgid "Near me"
+msgstr "Near me"
+
+msgid "Reset filters"
+msgstr "Reset filters"
+
+msgid "Show more"
+msgstr "Show more"
+
+msgid "Showing %{shown} of %{total}, cheapest first."
+msgstr "Showing %{shown} of %{total}, cheapest first."
+
+msgid "Showing %{shown} of %{total}, nearest first."
+msgstr "Showing %{shown} of %{total}, nearest first."
+
+msgid "Distance"
+msgstr "Distance"
+
+msgid "%{distance} km"
+msgstr "%{distance} km"
+
+msgid "Location is unavailable."
+msgstr "Location is unavailable."
+
+msgid "Charging"
+msgstr "Charging"
+
+msgid "Electric vehicle charging"
+msgstr "Electric vehicle charging"
+
+msgid "Power"
+msgstr "Power"
+
+msgid "Slowest"
+msgstr "Slowest"
+
+msgid "Fastest"
+msgstr "Fastest"
+
+msgid "Showing %{shown} of %{total}, fastest first."
+msgstr "Showing %{shown} of %{total}, fastest first."
+
+msgid "Chargers are loading into the cache."
+msgstr "Chargers are loading into the cache."
+
+msgid "The charging catalog is empty."
+msgstr "The charging catalog is empty."
+
+msgid "%{count} connectors"
+msgstr "%{count} connectors"
