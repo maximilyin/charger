@@ -39,9 +39,7 @@ jobs:
         with:
           name: charger-build
           include-hidden-files: true
-          path: |
-            deps
-            _build
+          path: _build
 
   format:
     name: Format
@@ -61,6 +59,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: charger-build
+      - name: Get dependencies
+        run: mix deps.get
       - name: Check formatting
         run: mix format --check-formatted
 
@@ -82,5 +82,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: charger-build
+      - name: Get dependencies
+        run: mix deps.get
       - name: Run tests
         run: mix test
