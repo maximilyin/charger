@@ -62,6 +62,7 @@ defmodule Charger.Prices do
 
     total = length(priced)
     per_page = take(params)
+    points = if points?(params), do: markers(priced), else: []
     pages = max(ceil_div(total, per_page), 1)
     page = params |> page_number() |> min(pages) |> max(1)
     prices = Enum.map(priced, & &1.price)
@@ -87,6 +88,7 @@ defmodule Charger.Prices do
       total: total,
       page: page,
       pages: pages,
+      points: points,
       stations:
         priced
         |> Enum.slice((page - 1) * per_page, per_page)
@@ -297,6 +299,17 @@ defmodule Charger.Prices do
       {page, ""} -> page
       _ -> 1
     end
+  end
+
+  defp points?(params), do: params["points"] == true or params[:points] == true
+
+  defp markers(stations) do
+    Enum.flat_map(stations, fn station ->
+      case Charger.Geo.marker(station) do
+        nil -> []
+        marker -> [marker]
+      end
+    end)
   end
 
   defp take(params) do

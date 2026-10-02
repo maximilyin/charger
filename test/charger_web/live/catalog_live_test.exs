@@ -173,4 +173,30 @@ defmodule ChargerWeb.CatalogLiveTest do
              "a[href='https://www.google.com/maps/search/?api=1&query=40.432861,-3.724194']"
            )
   end
+
+  test "map loads every station matching the filter", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    assert has_element?(view, "#view-table.is-active")
+    assert has_element?(view, "#view-table[title='Таблиця'] .hero-list-bullet")
+    assert has_element?(view, "#view-map[title='Карта'] .hero-globe-alt")
+    refute has_element?(view, "#station-map")
+
+    view |> element("#view-map") |> render_click()
+
+    assert has_element?(view, "#view-map.is-active")
+    assert has_element?(view, "#station-map")
+    refute has_element?(view, "#stations")
+    refute has_element?(view, "#show-more")
+    assert has_element?(view, "#catalog-caption", "На карті")
+
+    assert_push_event(view, "map-points", %{points: points})
+    assert length(points) == 29
+    assert Enum.all?(points, &is_float(&1.lat))
+
+    view |> element("#view-table") |> render_click()
+
+    assert has_element?(view, "#stations")
+    refute has_element?(view, "#station-map")
+  end
 end

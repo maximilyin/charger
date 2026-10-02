@@ -26,14 +26,46 @@ defmodule Charger.Geo do
 
   def distance_m(_point, _latitude, _longitude), do: nil
 
-  defp coordinates(%{latitude: latitude, longitude: longitude}) do
+  def coordinates(%{latitude: latitude, longitude: longitude}) do
     case {number(latitude), number(longitude)} do
-      {{lat, _lat_rest}, {lng, _lng_rest}} -> {lat, lng}
-      _ -> nil
+      {{lat, _lat_rest}, {lng, _lng_rest}}
+      when lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 ->
+        {lat, lng}
+
+      _ ->
+        nil
     end
   end
 
-  defp coordinates(_point), do: nil
+  def coordinates(_point), do: nil
+
+  def marker(station) when is_map(station) do
+    case coordinates(station) do
+      nil ->
+        nil
+
+      {lat, lng} when lat >= 27.0 and lat <= 44.0 and lng >= -19.0 and lng <= 5.0 ->
+        %{
+          id: Map.get(station, :id),
+          lat: lat,
+          lng: lng,
+          price: Map.get(station, :price),
+          brand: Map.get(station, :brand) || "",
+          place: marker_place(station)
+        }
+
+      _ ->
+        nil
+    end
+  end
+
+  def marker(_station), do: nil
+
+  defp marker_place(station) do
+    [Map.get(station, :address), Map.get(station, :municipality)]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(", ")
+  end
 
   defp number(value) when is_float(value), do: {value, ""}
   defp number(value) when is_integer(value), do: {value / 1, ""}

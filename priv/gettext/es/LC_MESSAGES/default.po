@@ -171,6 +171,15 @@ msgstr "Quitar filtros"
 msgid "Show more"
 msgstr "Mostrar más"
 
+msgid "Showing %{shown} of %{total} on the map."
+msgstr "En el mapa, %{shown} de %{total}."
+
+msgid "Table"
+msgstr "Tabla"
+
+msgid "View"
+msgstr "Vista"
+
 msgid "Showing %{shown} of %{total}, cheapest first."
 msgstr "Mostrando %{shown} de %{total}, primero las más baratas."
 

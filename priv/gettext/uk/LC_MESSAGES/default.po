@@ -171,6 +171,15 @@ msgstr "Скинути фільтри"
 msgid "Show more"
 msgstr "Показати ще"
 
+msgid "Showing %{shown} of %{total} on the map."
+msgstr "На карті %{shown} з %{total}."
+
+msgid "Table"
+msgstr "Таблиця"
+
+msgid "View"
+msgstr "Вигляд"
+
 msgid "Showing %{shown} of %{total}, cheapest first."
 msgstr "Показано %{shown} з %{total}, спочатку найдешевші."
 

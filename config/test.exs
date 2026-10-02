@@ -1,7 +1,16 @@
 import Config
 
-config :charger, Charger.Prices.Cache, source: Charger.Prices.FixtureSource
-config :charger, Charger.Chargers.Cache, source: Charger.Chargers.FixtureSource
+cache_dir = Path.join(System.tmp_dir!(), "charger-test-cache")
+File.mkdir_p!(cache_dir)
+
+config :charger, Charger.Prices.Cache,
+  source: Charger.Prices.FixtureSource,
+  path: Path.join(cache_dir, "fuel-prices.json")
+
+config :charger, Charger.Chargers.Cache,
+  source: Charger.Chargers.FixtureSource,
+  path: Path.join(cache_dir, "chargers.csv")
+
 config :charger, :catalog_page_size, 2
 
 # We don't run a server during test. If one is required,

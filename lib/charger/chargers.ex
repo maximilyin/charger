@@ -47,6 +47,7 @@ defmodule Charger.Chargers do
     powers = Enum.map(matched, & &1.price) |> Enum.reject(&is_nil/1)
     total = length(matched)
     size = take(params)
+    points = if points?(params), do: markers(matched), else: []
     pages = max(ceil_div(total, size), 1)
     page = params |> page_number() |> min(pages) |> max(1)
 
@@ -70,6 +71,7 @@ defmodule Charger.Chargers do
       total: total,
       page: page,
       pages: pages,
+      points: points,
       stations:
         matched
         |> Enum.slice((page - 1) * size, size)
@@ -272,6 +274,17 @@ defmodule Charger.Chargers do
     else
       div(Enum.at(sorted, middle - 1) + Enum.at(sorted, middle) + 1, 2)
     end
+  end
+
+  defp points?(params), do: params["points"] == true or params[:points] == true
+
+  defp markers(stations) do
+    Enum.flat_map(stations, fn station ->
+      case Charger.Geo.marker(station) do
+        nil -> []
+        marker -> [marker]
+      end
+    end)
   end
 
   defp take(params) do

@@ -103,4 +103,12 @@ defmodule Charger.ChargersTest do
     assert Charger.Chargers.format_power(7400, "uk") == "7,4 kW"
     assert Charger.Chargers.format_power(50_000, "en") == "50 kW"
   end
+
+  test "map points include every charger while the table stays paged" do
+    result = Charger.Chargers.query(%{"take" => 1, "points" => true})
+
+    assert length(result.stations) == 1
+    assert length(result.points) == 2
+    assert result.points |> Enum.map(& &1.id) |> Enum.sort() == ["SITE-A", "SITE-B"]
+  end
 end

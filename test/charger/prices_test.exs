@@ -75,4 +75,28 @@ defmodule Charger.PricesTest do
     assert is_float(hd(result.stations).distance_m)
     assert result.cheapest == 1759
   end
+
+  test "map points include every match while the table stays paged" do
+    paged = Charger.Prices.query(%{"take" => 2})
+    assert paged.points == []
+    assert length(paged.stations) == 2
+
+    result = Charger.Prices.query(%{"take" => 2, "points" => true})
+    assert length(result.stations) == 2
+    assert length(result.points) == 29
+
+    assert Enum.all?(result.points, fn point ->
+             is_float(point.lat) and is_float(point.lng)
+           end)
+
+    refute Charger.Geo.marker(%{
+             id: "outside",
+             latitude: "0",
+             longitude: "0",
+             price: 1,
+             brand: "X",
+             address: "",
+             municipality: ""
+           })
+  end
 end

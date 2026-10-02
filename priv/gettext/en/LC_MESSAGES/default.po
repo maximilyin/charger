@@ -171,6 +171,15 @@ msgstr "Reset filters"
 msgid "Show more"
 msgstr "Show more"
 
+msgid "Showing %{shown} of %{total} on the map."
+msgstr "Showing %{shown} of %{total} on the map."
+
+msgid "Table"
+msgstr "Table"
+
+msgid "View"
+msgstr "View"
+
 msgid "Showing %{shown} of %{total}, cheapest first."
 msgstr "Showing %{shown} of %{total}, cheapest first."
 

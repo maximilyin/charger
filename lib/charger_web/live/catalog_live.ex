@@ -16,6 +16,8 @@ defmodule ChargerWeb.CatalogLive do
      |> assign(:origin, nil)
      |> assign(:geo_status, :idle)
      |> assign(:shown, page_size())
+     |> assign(:view, :table)
+     |> assign(:map_count, 0)
      |> assign(Charger.Sessions.default_filters())}
   end
 
@@ -157,9 +159,37 @@ defmodule ChargerWeb.CatalogLive do
               <.stat id="station-count" label={gettext("Stations")} value={@result.total} />
             </div>
 
-            <p :if={@result.stations != []} id="catalog-caption" class="catalog-caption">
-              {caption(@result, @origin)}
-            </p>
+            <div :if={@result.status == :ready} class="catalog-toolbar">
+              <p :if={@result.total > 0} id="catalog-caption" class="catalog-caption">
+                {caption(@result, @origin, @view, @map_count)}
+              </p>
+              <div id="catalog-views" class="catalog-views" role="group" aria-label={gettext("View")}>
+                <button
+                  id="view-table"
+                  type="button"
+                  phx-click="view"
+                  phx-value-view="table"
+                  class={["text-button", "view-button", @view == :table && "is-active"]}
+                  title={gettext("Table")}
+                  aria-label={gettext("Table")}
+                  aria-pressed={to_string(@view == :table)}
+                >
+                  <.icon name="hero-list-bullet" />
+                </button>
+                <button
+                  id="view-map"
+                  type="button"
+                  phx-click="view"
+                  phx-value-view="map"
+                  class={["text-button", "view-button", @view == :map && "is-active"]}
+                  title={gettext("Map")}
+                  aria-label={gettext("Map")}
+                  aria-pressed={to_string(@view == :map)}
+                >
+                  <.icon name="hero-globe-alt" />
+                </button>
+              </div>
+            </div>
 
             <div :if={@result.status == :loading} id="catalog-state" class="catalog-state">
               {loading_text(@result.fuel)}
@@ -177,7 +207,16 @@ defmodule ChargerWeb.CatalogLive do
               {gettext("No stations match these filters.")}
             </div>
 
-            <div :if={@result.stations != []} class="overflow-x-auto">
+            <div
+              :if={@view == :map and @result.total > 0}
+              id="station-map"
+              phx-hook="StationMap"
+              phx-update="ignore"
+              class="station-map"
+            >
+            </div>
+
+            <div :if={@view == :table and @result.stations != []} class="overflow-x-auto">
               <table class="catalog-table">
                 <thead>
                   <tr>
@@ -227,7 +266,10 @@ defmodule ChargerWeb.CatalogLive do
             </div>
 
             <button
-              :if={@result.stations != [] and length(@result.stations) < @result.total}
+              :if={
+                @view == :table and @result.stations != [] and
+                  length(@result.stations) < @result.total
+              }
               id="show-more"
               type="button"
               phx-click="show_more"
@@ -337,6 +379,14 @@ defmodule ChargerWeb.CatalogLive do
     end
   end
 
+  def handle_event("view", %{"view" => "map"}, socket) do
+    {:noreply, socket |> assign(:view, :map) |> load()}
+  end
+
+  def handle_event("view", %{"view" => "table"}, socket) do
+    {:noreply, assign(socket, :view, :table)}
+  end
+
   def handle_event("show_more", _params, socket) do
     {:noreply, socket |> update(:shown, &(&1 + page_size())) |> load()}
   end
@@ -374,7 +424,8 @@ defmodule ChargerWeb.CatalogLive do
       "q" => socket.assigns.q,
       "near_lat" => origin && origin.lat,
       "near_lng" => origin && origin.lng,
-      "take" => socket.assigns.shown
+      "take" => socket.assigns.shown,
+      "points" => socket.assigns.view == :map
     }
 
     result =
@@ -384,7 +435,17 @@ defmodule ChargerWeb.CatalogLive do
         Charger.Prices.query(params)
       end
 
-    assign(socket, :result, result)
+    points = result.points
+    result = Map.delete(result, :points)
+    socket = assign(socket, :result, result)
+
+    if socket.assigns.view == :map do
+      socket
+      |> assign(:map_count, length(points))
+      |> push_event("map-points", map_payload(points, result, socket.assigns.locale))
+    else
+      socket
+    end
   end
 
   defp filters_from_url(params) do
@@ -446,8 +507,33 @@ defmodule ChargerWeb.CatalogLive do
   defp event_number(_value), do: :error
 
   defp page_size do
-    Application.get_env(:charger, :catalog_page_size, 200)
+    Application.get_env(:charger, :catalog_page_size, 50)
   end
+
+  defp map_payload(points, result, locale) do
+    %{
+      link: gettext("Show on Google Maps"),
+      points:
+        Enum.map(points, fn point ->
+          %{
+            id: point.id,
+            lat: point.lat,
+            lng: point.lng,
+            price: edge_value(point.price, result.fuel, locale),
+            tier: price_tier(point.price, result.median),
+            brand: point.brand,
+            place: point.place,
+            href: Charger.Prices.maps_url(%{latitude: point.lat, longitude: point.lng})
+          }
+        end)
+    }
+  end
+
+  defp price_tier(nil, _median), do: "same"
+  defp price_tier(_price, nil), do: "same"
+  defp price_tier(price, median) when price < median, do: "cheap"
+  defp price_tier(price, median) when price > median, do: "dear"
+  defp price_tier(_price, _median), do: "same"
 
   @filter_fuels ~w(gasoline_95 gasoline_98 diesel_a diesel_premium charging)
 
@@ -529,7 +615,11 @@ defmodule ChargerWeb.CatalogLive do
     ]
   end
 
-  defp caption(result, origin) do
+  defp caption(result, _origin, :map, count) do
+    gettext("Showing %{shown} of %{total} on the map.", shown: count, total: result.total)
+  end
+
+  defp caption(result, origin, :table, _count) do
     shown = length(result.stations)
 
     cond do
