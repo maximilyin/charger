@@ -40,3 +40,6 @@ npm-debug.log
 
 AGENTS.md
 
+# Local Reve key. Not part of the repository.
+/config/dev.secret.exs
+

@@ -11,6 +11,12 @@ config :charger, Charger.Chargers.Cache,
   source: Charger.Chargers.FixtureSource,
   path: Path.join(cache_dir, "chargers.csv")
 
+config :charger, ChargerReve,
+  source: Charger.Reve.ScriptedSource,
+  path: Path.join(cache_dir, "reve-locations.json"),
+  pause_ms: :timer.hours(1),
+  retry_ms: :timer.hours(1)
+
 config :charger, :catalog_page_size, 2
 
 # We don't run a server during test. If one is required,

@@ -13,6 +13,7 @@ defmodule Charger.Application do
       {Phoenix.PubSub, name: Charger.PubSub},
       Charger.Prices.Cache,
       Charger.Chargers.Cache,
+      ChargerReve,
       Charger.Sessions,
       ChargerWeb.Endpoint
     ]
