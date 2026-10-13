@@ -511,8 +511,12 @@ defmodule ChargerWeb.CatalogLive do
   end
 
   defp map_payload(points, result, locale) do
+    {low, high} = price_bounds(result)
+
     %{
       link: gettext("Show on Google Maps"),
+      low: low,
+      high: high,
       points:
         Enum.map(points, fn point ->
           %{
@@ -520,6 +524,7 @@ defmodule ChargerWeb.CatalogLive do
             lat: point.lat,
             lng: point.lng,
             price: edge_value(point.price, result.fuel, locale),
+            amount: point.price,
             tier: price_tier(point.price, result.median),
             brand: point.brand,
             place: point.place,
@@ -528,6 +533,14 @@ defmodule ChargerWeb.CatalogLive do
         end)
     }
   end
+
+  defp price_bounds(%{fuel: :charging}), do: {nil, nil}
+
+  defp price_bounds(%{cheapest: low, dearest: high})
+       when is_number(low) and is_number(high) and high > low,
+       do: {low, high}
+
+  defp price_bounds(_result), do: {nil, nil}
 
   defp price_tier(nil, _median), do: "same"
   defp price_tier(_price, nil), do: "same"

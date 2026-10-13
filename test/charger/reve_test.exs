@@ -33,6 +33,29 @@ defmodule Charger.ReveTest do
     refute ChargerReve.retry?(request, %Req.Response{status: 404})
   end
 
+  test "five successful pages wait an hour before the next page" do
+    counter = :counters.new(1, [:atomics])
+
+    :persistent_term.put(@script, fn page ->
+      :counters.add(counter, 1, 1)
+
+      if page in 1..5 do
+        {:ok, Enum.map(1..100, &%{"id" => "P#{page}-#{&1}"})}
+      else
+        {:error, {:unexpected, page}}
+      end
+    end)
+
+    send(ChargerReve, :fetch)
+    snapshot = await(fn snap -> snap.status == :waiting and snap.count == 500 end)
+
+    assert snapshot.next_page == 6
+    assert snapshot.complete == false
+    assert snapshot.error == nil
+    Process.sleep(50)
+    assert :counters.get(counter, 1) == 5
+  end
+
   test "requests continue until the limit error, then wait" do
     :persistent_term.put(@script, fn
       1 -> {:ok, Enum.map(1..100, &%{"id" => "L#{&1}"})}

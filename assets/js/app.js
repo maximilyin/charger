@@ -62,7 +62,7 @@ function mapStyleUrl() {
 
   return dark
     ? "https://tiles.openfreemap.org/styles/dark"
-    : "https://tiles.openfreemap.org/styles/positron"
+    : "https://tiles.openfreemap.org/styles/bright"
 }
 
 function ensureMapLibrary() {
@@ -151,6 +151,7 @@ const Hooks = {
           geometry: {type: "Point", coordinates: [point.lng, point.lat]},
           properties: {
             price: point.price || "",
+            amount: typeof point.amount === "number" ? point.amount : null,
             tier: point.tier || "same",
             brand: point.brand || "",
             place: point.place || "",
@@ -224,7 +225,8 @@ const Hooks = {
           data,
           cluster: true,
           clusterRadius: 50,
-          clusterMaxZoom: 14
+          clusterMaxZoom: 14,
+          clusterProperties: {amount_sum: ["+", ["coalesce", ["get", "amount"], 0]]}
         })
         this.map.addLayer({
           id: "clusters",
@@ -232,7 +234,11 @@ const Hooks = {
           source: "stations",
           filter: ["has", "point_count"],
           paint: {
-            "circle-color": "#3DDC84",
+            "circle-color": this.circleColor([
+              "/",
+              ["get", "amount_sum"],
+              ["max", ["get", "point_count"], 1]
+            ]),
             "circle-radius": ["step", ["get", "point_count"], 16, 20, 20, 80, 26],
             "circle-stroke-width": 2,
             "circle-stroke-color": "#083018"
@@ -256,7 +262,7 @@ const Hooks = {
           source: "stations",
           filter: ["!", ["has", "point_count"]],
           paint: {
-            "circle-color": "#3DDC84",
+            "circle-color": this.circleColor(["to-number", ["get", "amount"]]),
             "circle-radius": 7,
             "circle-stroke-width": 2,
             "circle-stroke-color": "#083018"
@@ -264,6 +270,17 @@ const Hooks = {
         })
         this.bind()
       }
+
+      this.map.setPaintProperty(
+        "clusters",
+        "circle-color",
+        this.circleColor(["/", ["get", "amount_sum"], ["max", ["get", "point_count"], 1]])
+      )
+      this.map.setPaintProperty(
+        "points",
+        "circle-color",
+        this.circleColor(["to-number", ["get", "amount"]])
+      )
 
       if (this.refit) this.fit()
     },
@@ -282,6 +299,24 @@ const Hooks = {
       requestAnimationFrame(() => {
         if (this.map) this.map.resize()
       })
+    },
+    circleColor(input) {
+      const low = this.payload && this.payload.low
+      const high = this.payload && this.payload.high
+
+      if (!Number.isFinite(low) || !Number.isFinite(high) || !(high > low)) return "#3DDC84"
+
+      return [
+        "interpolate",
+        ["linear"],
+        input,
+        low,
+        "#3DDC84",
+        low + (high - low) / 2,
+        "#F0C418",
+        high,
+        "#E23D3D"
+      ]
     }
   },
   NearMe: {

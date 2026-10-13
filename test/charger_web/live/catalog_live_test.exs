@@ -190,9 +190,11 @@ defmodule ChargerWeb.CatalogLiveTest do
     refute has_element?(view, "#show-more")
     assert has_element?(view, "#catalog-caption", "На карті")
 
-    assert_push_event(view, "map-points", %{points: points})
+    assert_push_event(view, "map-points", %{points: points, low: low, high: high})
     assert length(points) == 29
     assert Enum.all?(points, &is_float(&1.lat))
+    assert is_integer(low) and is_integer(high) and low < high
+    assert Enum.all?(points, &(&1.amount >= low and &1.amount <= high))
 
     view |> element("#view-table") |> render_click()
 

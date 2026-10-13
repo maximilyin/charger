@@ -3,8 +3,8 @@ defmodule ChargerReve do
   Slow download of the Reve location catalog.
 
   On start the process loads `priv/cache/reve-locations.json` into ETS, then
-  asks for the next page immediately. It keeps asking until Reve answers that
-  the request limit is spent, then waits one hour and continues. The catalog
+  asks for the next page immediately. It takes five successful pages and then
+  waits an hour. A rate-limit response waits an hour immediately. The catalog
   page does not read this table.
 
   `locations` in the file is an object keyed by station id. A later response
@@ -17,6 +17,8 @@ defmodule ChargerReve do
   @table :charger_reve
   @url "https://www.mapareve.es/api/external/v1/locations"
   @page_size 100
+  @burst_size 5
+  @pause_ms :timer.minutes(60)
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -61,8 +63,26 @@ defmodule ChargerReve do
     state =
       case fetch_page(state.next_page) do
         {:ok, locations} when is_list(locations) ->
-          state = store_page(state, locations)
-          if state.complete, do: state, else: arm(state, 0)
+          state = store_page(%{state | successes: state.successes + 1}, locations)
+
+          cond do
+            state.complete ->
+              state
+
+            state.successes >= @burst_size ->
+              Logger.info(
+                "reve collected #{@burst_size} pages, next attempt in #{div(pause_ms(), 60_000)} minutes"
+              )
+
+              state
+              |> Map.put(:successes, 0)
+              |> Map.put(:status, :waiting)
+              |> publish()
+              |> arm(pause_ms())
+
+            true ->
+              arm(state, 0)
+          end
 
         {:error, :rate_limited} ->
           Logger.info(
@@ -70,6 +90,7 @@ defmodule ChargerReve do
           )
 
           state
+          |> Map.put(:successes, 0)
           |> Map.put(:error, nil)
           |> Map.put(:status, :waiting)
           |> publish()
@@ -314,7 +335,7 @@ defmodule ChargerReve do
 
   defp pause_ms do
     Application.get_env(:charger, __MODULE__, [])
-    |> Keyword.get(:pause_ms, :timer.hours(1))
+    |> Keyword.get(:pause_ms, @pause_ms)
   end
 
   defp retry_ms do
@@ -337,6 +358,7 @@ defmodule ChargerReve do
       complete: false,
       updated_at: nil,
       error: nil,
+      successes: 0,
       timer: nil
     }
   end
