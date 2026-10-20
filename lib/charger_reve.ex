@@ -1,21 +1,32 @@
 defmodule ChargerReve do
   @moduledoc """
-  Slow download of the Reve location catalog.
+  Slow download of the Reve charging catalog.
 
-  On start the process loads `priv/cache/reve-locations.json` into ETS, then
+  Three lists are collected one after the other: the operators (CPOs), the
+  locations of each operator, then the tariffs of the connectors. Reve pages
+  by offset with no stable order, so one long walk over all locations skips
+  and repeats stations while the list changes. A list per operator is short
+  and is read before it moves much.
+
+  On start the process loads `priv/cache/reve-locations.json` into ETS and
   asks for the next page immediately. It takes five successful pages and then
-  waits an hour. A rate-limit response waits an hour immediately. The catalog
-  page does not read this table.
+  waits an hour. A rate-limit response waits an hour immediately.
 
-  `locations` in the file is an object keyed by station id. A later response
-  for the same id is merged into that object, so prices and other fields stay.
+  Every station is its own ETS row keyed by `{:location, id}`. A station whose
+  id is already in the table is not written again. A tariff is stored on the
+  connector it belongs to, inside its location. Tariffs whose connector is not
+  in the catalog stay in `unmatched_tariffs`, keyed by connector id, and are
+  attached when that station arrives.
+
+  Once a full location list exists, the charging catalog shows these stations
+  instead of the RIPREE export.
   """
 
   use GenServer
   require Logger
 
   @table :charger_reve
-  @url "https://www.mapareve.es/api/external/v1/locations"
+  @api "https://www.mapareve.es/api/external/v1"
   @page_size 100
   @burst_size 5
   @pause_ms :timer.minutes(60)
@@ -25,15 +36,17 @@ defmodule ChargerReve do
   end
 
   def snapshot do
-    if :ets.whereis(@table) == :undefined do
-      empty_snapshot()
-    else
-      case :ets.lookup(@table, :snapshot) do
-        [{:snapshot, snapshot}] -> snapshot
-        [] -> empty_snapshot()
-      end
+    case lookup(:status) do
+      nil -> empty_snapshot()
+      status -> Map.put(status, :locations, all_locations())
     end
   end
+
+  @doc """
+  Stations in the shape `Charger.Chargers` reads, or nil while no full
+  location list has been collected.
+  """
+  def catalog, do: lookup(:catalog)
 
   def classify(status, body) when is_integer(status) do
     cond do
@@ -48,89 +61,106 @@ defmodule ChargerReve do
     :ets.new(@table, [:named_table, :set, :protected, read_concurrency: true])
     state = load_file()
     publish(state)
-    state = if state.complete, do: state, else: arm(state, 0)
+    state = publish_catalog(state)
+    state = if phase(state) == :done, do: state, else: arm(state, 0)
     {:ok, state}
   end
 
   @impl true
-  def handle_info(:fetch, %{complete: true} = state) do
-    {:noreply, state}
-  end
-
   def handle_info(:fetch, state) do
-    state = %{cancel_timer(state) | status: :collecting}
+    state = cancel_timer(state)
 
-    state =
-      case fetch_page(state.next_page) do
-        {:ok, locations} when is_list(locations) ->
-          state = store_page(%{state | successes: state.successes + 1}, locations)
-
-          cond do
-            state.complete ->
-              state
-
-            state.successes >= @burst_size ->
-              Logger.info(
-                "reve collected #{@burst_size} pages, next attempt in #{div(pause_ms(), 60_000)} minutes"
-              )
-
-              state
-              |> Map.put(:successes, 0)
-              |> Map.put(:status, :waiting)
-              |> publish()
-              |> arm(pause_ms())
-
-            true ->
-              arm(state, 0)
-          end
-
-        {:error, :rate_limited} ->
-          Logger.info(
-            "reve rate limit reached at page #{state.next_page}, next attempt in #{div(pause_ms(), 60_000)} minutes"
-          )
-
-          state
-          |> Map.put(:successes, 0)
-          |> Map.put(:error, nil)
-          |> Map.put(:status, :waiting)
-          |> publish()
-          |> arm(pause_ms())
-
-        {:error, reason} ->
-          Logger.error("reve page #{state.next_page} failed: #{inspect(reason)}")
-
-          state
-          |> Map.put(:error, inspect(reason))
-          |> Map.put(:status, :waiting)
-          |> publish()
-          |> arm(retry_ms())
-      end
-
-    {:noreply, state}
+    case phase(state) do
+      :done -> {:noreply, publish(%{state | status: :complete})}
+      kind -> {:noreply, fetch(state, kind)}
+    end
   end
 
   @impl true
   def handle_call(:reset, _from, state) do
     cancel_timer(state)
     File.rm(file_path())
+    :ets.match_delete(@table, {{:location, :_}, :_})
     blank = empty_state()
     publish(blank)
-    {:reply, :ok, blank}
+    {:reply, :ok, publish_catalog(blank)}
   end
 
-  defp fetch_page(page) do
-    case source() do
-      nil -> request_page(page)
-      mod -> mod.fetch_page(page)
+  defp phase(%{cpos_complete: false}), do: :cpos
+  defp phase(%{operators_complete: false, operators: [party_id | _]}), do: {:locations, party_id}
+  defp phase(%{tariffs_complete: false}), do: :tariffs
+  defp phase(_state), do: :done
+
+  defp fetch(state, kind) do
+    state = %{state | status: :collecting}
+    page = page(state, kind)
+
+    case fetch_page(kind, page) do
+      {:ok, items} when is_list(items) ->
+        state = store_page(%{state | successes: state.successes + 1}, kind, items)
+
+        cond do
+          phase(state) == :done ->
+            publish(%{state | status: :complete})
+
+          state.successes >= @burst_size ->
+            Logger.info(
+              "reve collected #{@burst_size} pages, next attempt in #{div(pause_ms(), 60_000)} minutes"
+            )
+
+            state
+            |> Map.put(:successes, 0)
+            |> Map.put(:status, :waiting)
+            |> publish()
+            |> arm(pause_ms())
+
+          true ->
+            arm(state, 0)
+        end
+
+      {:error, :rate_limited} ->
+        Logger.info(
+          "reve rate limit reached at #{label(kind)} page #{page}, next attempt in #{div(pause_ms(), 60_000)} minutes"
+        )
+
+        state
+        |> Map.put(:successes, 0)
+        |> Map.put(:error, nil)
+        |> Map.put(:status, :waiting)
+        |> publish()
+        |> arm(pause_ms())
+
+      {:error, reason} ->
+        Logger.error("reve #{label(kind)} page #{page} failed: #{inspect(reason)}")
+
+        state
+        |> Map.put(:error, inspect(reason))
+        |> Map.put(:status, :waiting)
+        |> publish()
+        |> arm(retry_ms())
     end
   end
 
-  defp request_page(page) when is_integer(page) and page >= 1 do
+  defp page(state, :cpos), do: state.cpo_page
+  defp page(state, {:locations, _party_id}), do: state.operator_page
+  defp page(state, :tariffs), do: state.tariff_page
+
+  defp label({:locations, party_id}), do: "locations #{party_id}"
+  defp label(kind), do: Atom.to_string(kind)
+
+  defp fetch_page(kind, page) do
+    case source() do
+      nil -> request_page(kind, page)
+      mod -> mod.fetch_page(kind, page)
+    end
+  end
+
+  defp request_page(kind, page) when is_integer(page) and page >= 1 do
     case api_key() do
       key when is_binary(key) and key != "" ->
-        case Req.get(@url,
+        case Req.get(@api <> path(kind),
                headers: [{"x-api-key", key}, {"accept", "application/json"}],
-               params: [page: page, limit: @page_size],
+               params: params(kind, page),
                receive_timeout: 120_000,
                retry: &retry?/2
              ) do
@@ -138,27 +168,36 @@ defmodule ChargerReve do
             result = classify(status, body)
 
             case result do
-              {:ok, _locations} ->
+              {:ok, _items} ->
                 :ok
 
               {:error, reason} ->
                 Logger.error(
-                  "reve api page #{page} failed: #{inspect(reason)}, status=#{status}, body=#{truncate(body)}"
+                  "reve api #{label(kind)} page #{page} failed: #{inspect(reason)}, status=#{status}, body=#{truncate(body)}"
                 )
             end
 
             result
 
           {:error, reason} ->
-            Logger.error("reve api page #{page} failed: #{inspect(reason)}")
+            Logger.error("reve api #{label(kind)} page #{page} failed: #{inspect(reason)}")
             {:error, reason}
         end
 
       _ ->
-        Logger.error("reve api page #{page} failed: missing api key")
+        Logger.error("reve api #{label(kind)} page #{page} failed: missing api key")
         {:error, :missing_api_key}
     end
   end
+
+  defp path(:cpos), do: "/cpos"
+  defp path({:locations, _party_id}), do: "/locations"
+  defp path(:tariffs), do: "/connectors/tariffs"
+
+  defp params({:locations, party_id}, page),
+    do: [party_id: party_id, page: page, limit: @page_size]
+
+  defp params(_kind, page), do: [page: page, limit: @page_size]
 
   defp truncate(body) when is_binary(body), do: String.slice(body, 0, 300)
   defp truncate(body), do: inspect(body, limit: 20, printable_limit: 300)
@@ -202,19 +241,81 @@ defmodule ChargerReve do
     )
   end
 
-  defp store_page(state, page_locations) do
-    locations = Enum.reduce(page_locations, state.locations, &merge_location/2)
+  defp store_page(state, :cpos, page_cpos) do
+    party_ids = for %{"party_id" => id} <- page_cpos, is_binary(id) and id != "", do: id
+    complete = length(page_cpos) < @page_size
 
-    complete = length(page_locations) < @page_size
-    updated_at = DateTime.utc_now() |> DateTime.truncate(:second)
+    Logger.info(
+      "reve cpos page #{state.cpo_page}: received #{length(page_cpos)}, " <>
+        "party ids #{length(party_ids)}, complete=#{complete}"
+    )
+
+    if party_ids == [] and page_cpos != [] do
+      Logger.error("reve cpos have no party_id, keys: #{inspect(Map.keys(hd(page_cpos)))}")
+    end
 
     state = %{
       state
-      | locations: locations,
-        next_page: state.next_page + 1,
-        complete: complete,
-        status: if(complete, do: :complete, else: :collecting),
-        updated_at: updated_at,
+      | operators: Enum.uniq(state.operators ++ party_ids),
+        cpo_page: state.cpo_page + 1,
+        cpos_complete: complete,
+        updated_at: now(),
+        error: nil
+    }
+
+    state = if complete, do: queue_operators(state), else: state
+    publish(state)
+    write_file(state)
+    state
+  end
+
+  defp store_page(state, {:locations, party_id}, page_locations) do
+    added = insert_new_locations(page_locations)
+    {index, unmatched, attached} = attach_waiting_tariffs(state, added)
+    done = length(page_locations) < @page_size
+    others = Enum.count(page_locations, &(is_map(&1) and &1["party_id"] != party_id))
+
+    Logger.info(
+      "reve locations #{party_id} page #{state.operator_page}: received #{length(page_locations)}, " <>
+        "new #{length(added)}, already stored #{length(page_locations) - length(added)}, " <>
+        "other operators #{others}, tariffs attached #{attached}, stored total #{location_count()}"
+    )
+
+    state = %{
+      state
+      | connector_index: index,
+        unmatched_tariffs: unmatched,
+        updated_at: now(),
+        error: nil
+    }
+
+    state =
+      if done do
+        state |> next_operator() |> refresh_catalog()
+      else
+        %{state | operator_page: state.operator_page + 1}
+      end
+
+    publish(state)
+    write_file(state)
+    state
+  end
+
+  defp store_page(state, :tariffs, page_tariffs) do
+    index = state.connector_index || connector_index(all_locations())
+
+    {unmatched, matched} =
+      attach_tariffs(index, Enum.filter(page_tariffs, &is_map/1), state.unmatched_tariffs)
+
+    complete = length(page_tariffs) < @page_size
+
+    state = %{
+      state
+      | connector_index: index,
+        unmatched_tariffs: unmatched,
+        tariff_page: state.tariff_page + 1,
+        tariffs_complete: complete,
+        updated_at: now(),
         error: nil
     }
 
@@ -222,18 +323,147 @@ defmodule ChargerReve do
     write_file(state)
 
     Logger.info(
-      "reve locations page #{state.next_page - 1}: received #{length(page_locations)}, " <>
-        "stored #{map_size(locations)}, complete=#{complete}"
+      "reve tariffs page #{state.tariff_page - 1}: received #{length(page_tariffs)}, " <>
+        "on connectors #{matched}, unmatched total #{map_size(unmatched)}, complete=#{complete}"
     )
 
     state
   end
 
+  defp queue_operators(state) do
+    known =
+      all_locations()
+      |> Enum.map(& &1["party_id"])
+      |> Enum.filter(&(is_binary(&1) and &1 != ""))
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    listed_only = state.operators -- known
+    operators = known ++ listed_only
+
+    Logger.info(
+      "reve operators to collect: #{length(known)} with stored stations, " <>
+        "#{length(listed_only)} only in the CPO list"
+    )
+
+    %{state | operators: operators, operator_page: 1, operators_complete: operators == []}
+  end
+
+  defp next_operator(%{operators: [party_id | rest]} = state) do
+    Logger.info("reve operator #{party_id} done, #{length(rest)} operators left")
+    state = %{state | operators: rest, operator_page: 1}
+    if rest == [], do: %{state | operators_complete: true, complete: true}, else: state
+  end
+
+  defp insert_new_locations(page_locations) do
+    for %{"id" => id} = location <- page_locations,
+        is_binary(id) and id != "",
+        :ets.insert_new(@table, {{:location, id}, location}),
+        do: location
+  end
+
+  defp attach_waiting_tariffs(state, added) do
+    entries = connector_index(added)
+    index = state.connector_index && Map.merge(state.connector_index, entries)
+    waiting = state.unmatched_tariffs |> Map.take(Map.keys(entries)) |> Map.values()
+    {unmatched, attached} = attach_tariffs(entries, waiting, state.unmatched_tariffs)
+    {index, unmatched, attached}
+  end
+
+  defp connector_index(locations) do
+    for %{"id" => location_id} = location <- locations,
+        %{} = evse <- List.wrap(location["evses"]),
+        %{"id" => connector_id} <- List.wrap(evse["connectors"]),
+        is_binary(connector_id),
+        into: %{},
+        do: {connector_id, location_id}
+  end
+
+  defp attach_tariffs(index, tariffs, unmatched) do
+    {by_location, unmatched, matched} =
+      Enum.reduce(tariffs, {%{}, unmatched, 0}, fn tariff, {by_location, unmatched, matched} ->
+        connector_id = tariff["connector_id"]
+
+        case Map.fetch(index, connector_id) do
+          {:ok, location_id} ->
+            by_location =
+              Map.update(
+                by_location,
+                location_id,
+                %{connector_id => tariff},
+                &Map.put(&1, connector_id, tariff)
+              )
+
+            {by_location, Map.delete(unmatched, connector_id), matched + 1}
+
+          :error when is_binary(connector_id) ->
+            {by_location, Map.put(unmatched, connector_id, tariff), matched}
+
+          :error ->
+            {by_location, unmatched, matched}
+        end
+      end)
+
+    Enum.each(by_location, fn {location_id, tariffs} ->
+      update_location(location_id, &put_tariffs(&1, tariffs))
+    end)
+
+    {unmatched, matched}
+  end
+
+  defp update_location(id, fun) do
+    case :ets.lookup(@table, {:location, id}) do
+      [{key, location}] -> :ets.insert(@table, {key, fun.(location)})
+      [] -> :ok
+    end
+  end
+
+  defp put_tariffs(location, tariffs) do
+    Map.update(location, "evses", [], fn
+      evses when is_list(evses) -> Enum.map(evses, &put_evse_tariffs(&1, tariffs))
+      other -> other
+    end)
+  end
+
+  defp put_evse_tariffs(%{"connectors" => connectors} = evse, tariffs) when is_list(connectors) do
+    %{evse | "connectors" => Enum.map(connectors, &put_tariff(&1, tariffs))}
+  end
+
+  defp put_evse_tariffs(evse, _tariffs), do: evse
+
+  defp put_tariff(%{"id" => id} = connector, tariffs) do
+    case Map.fetch(tariffs, id) do
+      {:ok, tariff} -> Map.merge(connector, Map.take(tariff, ["tariffs", "last_tariff_updated"]))
+      :error -> connector
+    end
+  end
+
+  defp put_tariff(connector, _tariffs), do: connector
+
+  defp all_locations do
+    :ets.select(@table, [{{{:location, :_}, :"$1"}, [], [:"$1"]}])
+  end
+
+  defp location_count do
+    :ets.select_count(@table, [{{{:location, :_}, :_}, [], [true]}])
+  end
+
   defp write_file(state) do
+    locations =
+      :ets.select(@table, [{{{:location, :"$1"}, :"$2"}, [], [{{:"$1", :"$2"}}]}])
+      |> Map.new()
+
     body = %{
-      "next_page" => state.next_page,
       "complete" => state.complete,
-      "locations" => state.locations
+      "cpo_page" => state.cpo_page,
+      "cpos_complete" => state.cpos_complete,
+      "operators" => state.operators,
+      "operator_page" => state.operator_page,
+      "operators_complete" => state.operators_complete,
+      "tariff_page" => state.tariff_page,
+      "tariffs_complete" => state.tariffs_complete,
+      "locations" => locations,
+      "unmatched_tariffs" => state.unmatched_tariffs
     }
 
     case Jason.encode(body) do
@@ -252,17 +482,21 @@ defmodule ChargerReve do
     case Charger.CacheFile.read(file_path()) do
       {:ok, json, updated_at} ->
         case Jason.decode(json) do
-          {:ok, %{"next_page" => page, "complete" => complete, "locations" => locations}}
-          when is_integer(page) and page >= 1 and is_boolean(complete) and
-                 (is_map(locations) or is_list(locations)) ->
-            kept = locations_by_id(locations)
+          {:ok, %{"complete" => complete, "locations" => locations} = body}
+          when is_boolean(complete) and (is_map(locations) or is_list(locations)) ->
+            insert_locations(locations)
 
             %{
               empty_state()
-              | locations: kept,
-                next_page: page,
-                complete: complete,
-                status: if(complete, do: :complete, else: :collecting),
+              | complete: complete,
+                cpo_page: positive(body["cpo_page"]),
+                cpos_complete: body["cpos_complete"] == true,
+                operators: strings(body["operators"]),
+                operator_page: positive(body["operator_page"]),
+                operators_complete: body["operators_complete"] == true,
+                tariff_page: positive(body["tariff_page"]),
+                tariffs_complete: body["tariffs_complete"] == true,
+                unmatched_tariffs: map(body["unmatched_tariffs"]),
                 updated_at: updated_at
             }
 
@@ -280,35 +514,90 @@ defmodule ChargerReve do
     end
   end
 
-  defp merge_location(%{"id" => id} = location, locations) when is_binary(id) and id != "" do
-    Map.update(locations, id, location, &Map.merge(&1, location))
+  defp insert_locations(locations) when is_map(locations),
+    do: insert_locations(Map.values(locations))
+
+  defp insert_locations(locations) when is_list(locations) do
+    rows =
+      for %{"id" => id} = location <- locations, is_binary(id), do: {{:location, id}, location}
+
+    :ets.insert(@table, rows)
   end
 
-  defp merge_location(_location, locations), do: locations
+  defp positive(value) when is_integer(value) and value >= 1, do: value
+  defp positive(_value), do: 1
 
-  defp locations_by_id(locations) when is_list(locations) do
-    Enum.reduce(locations, %{}, &merge_location/2)
-  end
+  defp strings(value) when is_list(value), do: Enum.filter(value, &is_binary/1)
+  defp strings(_value), do: []
 
-  defp locations_by_id(locations) when is_map(locations) do
-    locations |> Map.values() |> locations_by_id()
-  end
+  defp map(value) when is_map(value), do: value
+  defp map(_value), do: %{}
 
   defp publish(state) do
-    :ets.insert(@table, {:snapshot, snapshot_from(state)})
+    :ets.insert(@table, {:status, status_from(state)})
     state
   end
 
-  defp snapshot_from(state) do
+  defp refresh_catalog(%{complete: true} = state) do
+    if location_count() != state.catalog_count, do: publish_catalog(state), else: state
+  end
+
+  defp refresh_catalog(state), do: state
+
+  defp publish_catalog(%{complete: true} = state) do
+    sites = all_locations() |> Charger.Chargers.ReveSites.from_locations()
+
+    catalog = %{
+      status: :ready,
+      sites: sites,
+      overlap: nil,
+      fetched_at: state.updated_at,
+      error: nil
+    }
+
+    :ets.insert(@table, {:catalog, catalog})
+    Phoenix.PubSub.broadcast(Charger.PubSub, "chargers", :updated)
+
+    Logger.info(
+      "reve catalog ready: #{length(sites)} charging stations replace RIPREE on the page"
+    )
+
+    %{state | catalog_count: length(sites)}
+  end
+
+  defp publish_catalog(state) do
+    :ets.insert(@table, {:catalog, nil})
+    state
+  end
+
+  defp status_from(state) do
     %{
       status: state.status,
-      next_page: state.next_page,
-      count: map_size(state.locations),
+      count: location_count(),
       complete: state.complete,
+      cpo_page: state.cpo_page,
+      cpos_complete: state.cpos_complete,
+      operator: List.first(state.operators),
+      operators_left: length(state.operators),
+      operator_page: state.operator_page,
+      operators_complete: state.operators_complete,
+      tariff_page: state.tariff_page,
+      tariffs_complete: state.tariffs_complete,
+      unmatched_tariffs: map_size(state.unmatched_tariffs),
       updated_at: state.updated_at,
-      error: state.error,
-      locations: Map.values(state.locations)
+      error: state.error
     }
+  end
+
+  defp lookup(key) do
+    if :ets.whereis(@table) == :undefined do
+      nil
+    else
+      case :ets.lookup(@table, key) do
+        [{^key, value}] -> value
+        [] -> nil
+      end
+    end
   end
 
   defp arm(state, 0) do
@@ -327,6 +616,8 @@ defmodule ChargerReve do
   end
 
   defp cancel_timer(state), do: state
+
+  defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 
   defp source do
     Application.get_env(:charger, __MODULE__, [])
@@ -353,9 +644,17 @@ defmodule ChargerReve do
   defp empty_state do
     %{
       status: :collecting,
-      next_page: 1,
-      locations: %{},
       complete: false,
+      cpo_page: 1,
+      cpos_complete: false,
+      operators: [],
+      operator_page: 1,
+      operators_complete: false,
+      tariff_page: 1,
+      tariffs_complete: false,
+      unmatched_tariffs: %{},
+      connector_index: nil,
+      catalog_count: 0,
       updated_at: nil,
       error: nil,
       successes: 0,
@@ -366,9 +665,17 @@ defmodule ChargerReve do
   defp empty_snapshot do
     %{
       status: :loading,
-      next_page: 1,
       count: 0,
       complete: false,
+      cpo_page: 1,
+      cpos_complete: false,
+      operator: nil,
+      operators_left: 0,
+      operator_page: 1,
+      operators_complete: false,
+      tariff_page: 1,
+      tariffs_complete: false,
+      unmatched_tariffs: 0,
       updated_at: nil,
       error: nil,
       locations: []

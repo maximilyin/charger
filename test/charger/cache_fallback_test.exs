@@ -145,23 +145,9 @@ defmodule Charger.CacheFallbackTest do
   end
 
   defp restart(module) do
-    pid = Process.whereis(module)
-    ref = Process.monitor(pid)
-    assert :ok = GenServer.stop(pid)
-    assert_receive {:DOWN, ^ref, :process, ^pid, _reason}, 1_000
-
-    new_pid =
-      Enum.find_value(1..100, fn _ ->
-        Process.sleep(10)
-
-        case Process.whereis(module) do
-          ^pid -> nil
-          nil -> nil
-          other -> other
-        end
-      end)
-
-    assert is_pid(new_pid)
+    assert :ok = Supervisor.terminate_child(Charger.Supervisor, module)
+    assert {:ok, pid} = Supervisor.restart_child(Charger.Supervisor, module)
+    assert Process.whereis(module) == pid
   end
 
   defp await_fetches(at_least) do

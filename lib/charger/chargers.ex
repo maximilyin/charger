@@ -1,12 +1,20 @@
 defmodule Charger.Chargers do
   @moduledoc """
   Public charging installations, read from the ETS snapshot.
+
+  The Reve catalog is used once its location list is complete. Until then the
+  RIPREE export fills the page.
   """
 
   alias Charger.Chargers.Cache
   alias Charger.Geo
 
-  def snapshot, do: Cache.snapshot()
+  def snapshot do
+    case ChargerReve.catalog() do
+      %{sites: [_ | _]} = catalog -> catalog
+      _ -> Cache.snapshot()
+    end
+  end
 
   def sites, do: snapshot().sites
 

@@ -36,20 +36,21 @@ defmodule Charger.ReveTest do
   test "five successful pages wait an hour before the next page" do
     counter = :counters.new(1, [:atomics])
 
-    :persistent_term.put(@script, fn page ->
+    script(fn kind, page ->
       :counters.add(counter, 1, 1)
 
-      if page in 1..5 do
-        {:ok, Enum.map(1..100, &%{"id" => "P#{page}-#{&1}"})}
-      else
-        {:error, {:unexpected, page}}
+      case {kind, page} do
+        {:cpos, 1} -> {:ok, [%{"party_id" => "AAA"}]}
+        {{:locations, "AAA"}, page} when page in 1..4 -> {:ok, full_page("AAA", page)}
+        other -> {:error, {:unexpected, other}}
       end
     end)
 
     send(ChargerReve, :fetch)
-    snapshot = await(fn snap -> snap.status == :waiting and snap.count == 500 end)
+    snapshot = await(fn snap -> snap.status == :waiting and snap.count == 400 end)
 
-    assert snapshot.next_page == 6
+    assert snapshot.operator == "AAA"
+    assert snapshot.operator_page == 5
     assert snapshot.complete == false
     assert snapshot.error == nil
     Process.sleep(50)
@@ -57,114 +58,321 @@ defmodule Charger.ReveTest do
   end
 
   test "requests continue until the limit error, then wait" do
-    :persistent_term.put(@script, fn
-      1 -> {:ok, Enum.map(1..100, &%{"id" => "L#{&1}"})}
-      2 -> {:error, :rate_limited}
-      page -> {:error, {:unexpected, page}}
+    script(fn
+      :cpos, 1 -> {:ok, [%{"party_id" => "AAA"}]}
+      {:locations, "AAA"}, 1 -> {:ok, full_page("AAA", 1)}
+      {:locations, "AAA"}, 2 -> {:error, :rate_limited}
+      kind, page -> {:error, {:unexpected, kind, page}}
     end)
 
     send(ChargerReve, :fetch)
     snapshot = await(fn snap -> snap.status == :waiting and snap.count == 100 end)
 
-    assert snapshot.next_page == 2
+    assert snapshot.operator_page == 2
     assert snapshot.complete == false
     assert snapshot.error == nil
 
     {:ok, json, updated_at} = Charger.CacheFile.read(path())
     assert %DateTime{} = updated_at
-
-    assert {:ok, %{"next_page" => 2, "complete" => false, "locations" => locations}} =
-             Jason.decode(json)
-
-    assert map_size(locations) == 100
-    assert locations["L1"]["id"] == "L1"
+    assert {:ok, body} = Jason.decode(json)
+    assert body["operators"] == ["AAA"]
+    assert body["operator_page"] == 2
+    assert body["cpos_complete"] == true
+    assert map_size(body["locations"]) == 100
+    assert body["locations"]["AAA-1-1"]["id"] == "AAA-1-1"
   end
 
   test "a request error keeps the same page and does not retry immediately" do
     counter = :counters.new(1, [:atomics])
 
-    :persistent_term.put(@script, fn
-      1 ->
+    script(fn
+      :cpos, 1 ->
         :counters.add(counter, 1, 1)
         {:error, :timeout}
 
-      page ->
-        {:error, {:unexpected, page}}
+      kind, page ->
+        {:error, {:unexpected, kind, page}}
     end)
 
     send(ChargerReve, :fetch)
     snapshot = await(fn snap -> snap.error != nil end)
 
-    assert snapshot.next_page == 1
+    assert snapshot.cpo_page == 1
     assert snapshot.count == 0
     assert snapshot.status == :waiting
     Process.sleep(50)
     assert :counters.get(counter, 1) == 1
   end
 
-  test "a short page finishes the catalog and the file keeps every location" do
-    :persistent_term.put(@script, fn
-      1 -> {:ok, [%{"id" => "a", "city" => "Madrid"}, %{"id" => "b", "city" => "Valencia"}]}
-      page -> {:error, {:unexpected, page}}
+  test "operators are collected one by one, then the tariffs" do
+    script(fn
+      :cpos, 1 -> {:ok, [%{"party_id" => "AAA"}, %{"party_id" => "BBB"}]}
+      {:locations, "AAA"}, 1 -> {:ok, [%{"id" => "a", "party_id" => "AAA"}]}
+      {:locations, "BBB"}, 1 -> {:ok, [%{"id" => "b", "party_id" => "BBB"}]}
+      :tariffs, 1 -> {:ok, []}
+      kind, page -> {:error, {:unexpected, kind, page}}
     end)
 
     send(ChargerReve, :fetch)
-    snapshot = await(fn snap -> snap.complete end)
+    snapshot = await(fn snap -> snap.tariffs_complete end)
 
     assert snapshot.status == :complete
+    assert snapshot.complete
+    assert snapshot.operators_complete
+    assert snapshot.operators_left == 0
     assert snapshot.count == 2
-    assert snapshot.next_page == 2
-    assert Enum.map(snapshot.locations, & &1["id"]) |> Enum.sort() == ["a", "b"]
+    assert snapshot.tariff_page == 2
+    assert snapshot.locations |> Enum.map(& &1["id"]) |> Enum.sort() == ["a", "b"]
   end
 
-  test "a later field stays on the same station id" do
-    :persistent_term.put(@script, fn
-      1 ->
+  test "a station already stored is not written again" do
+    script(fn
+      :cpos, 1 ->
+        {:ok, [%{"party_id" => "AAA"}, %{"party_id" => "BBB"}]}
+
+      {:locations, "AAA"}, 1 ->
+        {:ok, [%{"id" => "a", "party_id" => "AAA", "city" => "Madrid"}]}
+
+      {:locations, "BBB"}, 1 ->
         {:ok,
-         Enum.map(1..99, &%{"id" => "L#{&1}"}) ++
-           [%{"id" => "a", "city" => "Madrid", "prices" => [%{"price" => 0.4}]}]}
+         [
+           %{"id" => "a", "party_id" => "AAA", "city" => "Barcelona"},
+           %{"id" => "b", "party_id" => "BBB", "city" => "Valencia"}
+         ]}
 
-      2 ->
-        {:ok, [%{"id" => "a", "city" => "Barcelona"}]}
-
-      page ->
-        {:error, {:unexpected, page}}
+      kind, page ->
+        {:error, {:unexpected, kind, page}}
     end)
 
     send(ChargerReve, :fetch)
-    snapshot = await(fn snap -> snap.complete end)
-    location = Enum.find(snapshot.locations, &(&1["id"] == "a"))
+    snapshot = await(fn snap -> snap.operators_complete end)
 
-    assert location["city"] == "Barcelona"
-    assert location["prices"] == [%{"price" => 0.4}]
+    assert snapshot.count == 2
+    assert Enum.find(snapshot.locations, &(&1["id"] == "a"))["city"] == "Madrid"
 
     {:ok, json, _updated_at} = Charger.CacheFile.read(path())
-    assert {:ok, %{"locations" => %{"a" => stored}}} = Jason.decode(json)
-    assert stored["city"] == "Barcelona"
-    assert stored["prices"] == [%{"price" => 0.4}]
+    assert {:ok, %{"locations" => %{"a" => stored} = locations}} = Jason.decode(json)
+    assert map_size(locations) == 2
+    assert stored["city"] == "Madrid"
   end
 
-  test "a restart continues from the saved page and still asks the API" do
-    body =
-      Jason.encode!(%{
-        "next_page" => 3,
-        "complete" => false,
-        "locations" => %{"a" => %{"id" => "a", "city" => "Madrid"}}
-      })
+  test "a tariff is stored on its connector inside the station" do
+    tariff = tariff("T1")
 
-    assert :ok = Charger.CacheFile.write(path(), body, ~U[2026-10-05 12:00:00Z])
+    script(fn
+      :cpos, 1 ->
+        {:ok, [%{"party_id" => "REP"}]}
 
-    :persistent_term.put(@script, fn
-      3 -> {:ok, [%{"id" => "b", "city" => "Valencia"}]}
-      page -> {:error, {:unexpected, page}}
+      {:locations, "REP"}, 1 ->
+        {:ok, [location("a", [connector("c1", 50_000), connector("c2", 22_000)])]}
+
+      :tariffs, 1 ->
+        {:ok,
+         [
+           %{"connector_id" => "c1", "evse_id" => "E1", "tariffs" => [tariff]},
+           %{"connector_id" => "zz", "evse_id" => "E9", "tariffs" => [tariff]}
+         ]}
+
+      kind, page ->
+        {:error, {:unexpected, kind, page}}
+    end)
+
+    send(ChargerReve, :fetch)
+    snapshot = await(fn snap -> snap.tariffs_complete end)
+
+    [stored] = snapshot.locations
+    [evse] = stored["evses"]
+    connectors = Map.new(evse["connectors"], &{&1["id"], &1})
+
+    assert connectors["c1"]["tariffs"] == [tariff]
+    refute Map.has_key?(connectors["c2"], "tariffs")
+    assert connectors["c1"]["max_electric_power"] == 50_000
+    assert snapshot.unmatched_tariffs == 1
+
+    {:ok, json, _updated_at} = Charger.CacheFile.read(path())
+    assert {:ok, body} = Jason.decode(json)
+    assert body["tariffs_complete"] == true
+    assert Map.keys(body["unmatched_tariffs"]) == ["zz"]
+
+    assert [%{"id" => "c1", "tariffs" => [_]} | _] =
+             body["locations"]["a"]["evses"] |> hd() |> Map.fetch!("connectors")
+  end
+
+  test "a waiting tariff is attached when its station arrives" do
+    tariff = %{"connector_id" => "c9", "tariffs" => [tariff("T9")]}
+
+    write_body(%{
+      "complete" => true,
+      "cpos_complete" => true,
+      "operators" => ["BBB"],
+      "operator_page" => 1,
+      "tariff_page" => 2,
+      "tariffs_complete" => true,
+      "locations" => %{"a" => location("a", [connector("c1", 50_000)])},
+      "unmatched_tariffs" => %{"c9" => tariff}
+    })
+
+    script(fn
+      {:locations, "BBB"}, 1 -> {:ok, [location("b", [connector("c9", 7_400)], "BBB")]}
+      kind, page -> {:error, {:unexpected, kind, page}}
     end)
 
     restart(ChargerReve)
-    snapshot = await(fn snap -> snap.complete and snap.count == 2 end)
+    snapshot = await(fn snap -> snap.status == :complete end)
 
-    assert snapshot.next_page == 4
-    assert Enum.map(snapshot.locations, & &1["id"]) |> Enum.sort() == ["a", "b"]
-    assert snapshot.updated_at != ~U[2026-10-05 12:00:00Z]
+    b = Enum.find(snapshot.locations, &(&1["id"] == "b"))
+    assert [%{"id" => "c9", "tariffs" => [%{"id" => "T9"}]}] = hd(b["evses"])["connectors"]
+    assert snapshot.unmatched_tariffs == 0
+    assert snapshot.count == 2
+  end
+
+  test "an old file keeps its stations and collects known operators first" do
+    test_pid = self()
+
+    write_body(%{
+      "next_page" => 149,
+      "complete" => true,
+      "tariff_page" => 6,
+      "tariffs_complete" => false,
+      "locations" => %{"a" => %{"id" => "a", "party_id" => "IBD", "city" => "Madrid"}},
+      "unmatched_tariffs" => %{}
+    })
+
+    script(fn kind, page ->
+      send(test_pid, {:called, kind, page})
+
+      case {kind, page} do
+        {:cpos, 1} -> {:ok, [%{"party_id" => "NEW"}, %{"party_id" => "IBD"}]}
+        {{:locations, "IBD"}, 1} -> {:ok, [%{"id" => "a", "party_id" => "IBD", "city" => "X"}]}
+        {{:locations, "NEW"}, 1} -> {:ok, [%{"id" => "n", "party_id" => "NEW"}]}
+        {:tariffs, 6} -> {:ok, []}
+        other -> {:error, {:unexpected, other}}
+      end
+    end)
+
+    restart(ChargerReve)
+    snapshot = await(fn snap -> snap.status == :complete end)
+
+    assert_receive {:called, :cpos, 1}
+    assert_receive {:called, {:locations, "IBD"}, 1}
+    assert_receive {:called, {:locations, "NEW"}, 1}
+    assert_receive {:called, :tariffs, 6}
+
+    assert snapshot.count == 2
+    assert snapshot.tariff_page == 7
+    assert Enum.find(snapshot.locations, &(&1["id"] == "a"))["city"] == "Madrid"
+    assert ChargerReve.catalog().sites |> Enum.map(& &1.id) |> Enum.sort() == ["a", "n"]
+  end
+
+  test "a restart continues the current operator from the saved page" do
+    test_pid = self()
+
+    write_body(%{
+      "complete" => false,
+      "cpos_complete" => true,
+      "operators" => ["AAA", "BBB"],
+      "operator_page" => 3,
+      "locations" => %{"a" => %{"id" => "a", "party_id" => "AAA"}}
+    })
+
+    script(fn kind, page ->
+      send(test_pid, {:called, kind, page})
+
+      case {kind, page} do
+        {{:locations, "AAA"}, 3} -> {:ok, [%{"id" => "x", "party_id" => "AAA"}]}
+        {{:locations, "BBB"}, 1} -> {:ok, []}
+        {:tariffs, 1} -> {:ok, []}
+        other -> {:error, {:unexpected, other}}
+      end
+    end)
+
+    restart(ChargerReve)
+    snapshot = await(fn snap -> snap.status == :complete end)
+
+    assert_receive {:called, {:locations, "AAA"}, 3}
+    refute_received {:called, :cpos, _}
+    assert snapshot.count == 2
+    assert snapshot.complete
+  end
+
+  test "a complete location list replaces RIPREE in the charging catalog" do
+    assert ChargerReve.catalog() == nil
+    assert Enum.any?(Charger.Chargers.snapshot().sites, &(&1.id == "SITE-A"))
+
+    script(fn
+      :cpos, 1 ->
+        {:ok, [%{"party_id" => "REP"}]}
+
+      {:locations, "REP"}, 1 ->
+        {:ok,
+         [
+           location("a", [connector("c1", 150_000), connector("c2", 22_000, "AC_3_PHASE")])
+           |> Map.merge(%{"city" => "MADRID", "city_code" => "079", "region" => "28"}),
+           location("b", [connector("c3", 7_400, "AC_1_PHASE")])
+           |> Map.merge(%{"city" => "Madrid", "city_code" => "079", "region" => "28"})
+         ]}
+
+      kind, page ->
+        {:error, {:unexpected, kind, page}}
+    end)
+
+    send(ChargerReve, :fetch)
+    await(fn snap -> snap.complete end)
+
+    result = Charger.Chargers.query(%{"take" => 10})
+
+    assert result.total == 2
+    assert result.provinces == ["Madrid"]
+    assert result.municipalities == ["Madrid"]
+
+    assert [%{id: "a", price: 150_000, brand: "REPSOL"}, %{id: "b", price: 7_400}] =
+             result.stations
+
+    refute Enum.any?(Charger.Chargers.snapshot().sites, &(&1.id == "SITE-A"))
+  end
+
+  defp script(fun), do: :persistent_term.put(@script, fun)
+
+  defp full_page(party_id, page) do
+    Enum.map(1..100, &%{"id" => "#{party_id}-#{page}-#{&1}", "party_id" => party_id})
+  end
+
+  defp write_body(body) do
+    assert :ok = Charger.CacheFile.write(path(), Jason.encode!(body), ~U[2026-10-05 12:00:00Z])
+  end
+
+  defp tariff(id) do
+    %{
+      "id" => id,
+      "currency" => "EUR",
+      "elements" => [%{"price_components" => [%{"type" => "ENERGY", "price" => "0.45"}]}]
+    }
+  end
+
+  defp location(id, connectors, party_id \\ "REP") do
+    %{
+      "id" => id,
+      "party_id" => party_id,
+      "name" => "Estación #{id}",
+      "cpo_name" => "REPSOL SOLUCIONES ENERGÉTICAS SA",
+      "address" => "Calle Mayor 1",
+      "city" => "Madrid",
+      "region" => "28",
+      "state" => "13",
+      "postal_code" => "28013",
+      "coordinates" => %{"latitude" => "40.4168", "longitude" => "-3.7038"},
+      "opening_times" => %{"twentyfourseven" => true},
+      "evses" => [%{"evse_id" => "ES*X*E#{id}", "connectors" => connectors}]
+    }
+  end
+
+  defp connector(id, watts, power_type \\ "DC") do
+    %{
+      "id" => id,
+      "standard" => "IEC_62196_T2_COMBO",
+      "power_type" => power_type,
+      "max_electric_power" => watts
+    }
   end
 
   defp path do
@@ -186,22 +394,8 @@ defmodule Charger.ReveTest do
   end
 
   defp restart(module) do
-    pid = Process.whereis(module)
-    ref = Process.monitor(pid)
-    assert :ok = GenServer.stop(pid)
-    assert_receive {:DOWN, ^ref, :process, ^pid, _reason}, 1_000
-
-    new_pid =
-      Enum.find_value(1..100, fn _ ->
-        Process.sleep(10)
-
-        case Process.whereis(module) do
-          ^pid -> nil
-          nil -> nil
-          other -> other
-        end
-      end)
-
-    assert is_pid(new_pid)
+    assert :ok = Supervisor.terminate_child(Charger.Supervisor, module)
+    assert {:ok, pid} = Supervisor.restart_child(Charger.Supervisor, module)
+    assert Process.whereis(module) == pid
   end
 end

@@ -2,6 +2,7 @@ import Config
 
 cache_dir = Path.join(System.tmp_dir!(), "charger-test-cache")
 File.mkdir_p!(cache_dir)
+File.rm(Path.join(cache_dir, "reve-locations.json"))
 
 config :charger, Charger.Prices.Cache,
   source: Charger.Prices.FixtureSource,

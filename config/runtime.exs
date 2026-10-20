@@ -24,6 +24,12 @@ if key = System.get_env("REVE_API_KEY") do
   config :charger, ChargerReve, api_key: key
 end
 
+if cache_dir = System.get_env("CACHE_DIR") do
+  config :charger, Charger.Prices.Cache, path: Path.join(cache_dir, "fuel-prices.json")
+  config :charger, Charger.Chargers.Cache, path: Path.join(cache_dir, "chargers.csv")
+  config :charger, ChargerReve, path: Path.join(cache_dir, "reve-locations.json")
+end
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
