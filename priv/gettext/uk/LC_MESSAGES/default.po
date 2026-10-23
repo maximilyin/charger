@@ -221,3 +221,9 @@ msgstr "Каталог зарядок порожній."
 
 msgid "%{count} connectors"
 msgstr "%{count} роз'єми"
+
+msgid "%{price}/kWh"
+msgstr "%{price}/кВт·год"
+
+msgid "Price per kWh. VAT is included when the operator states it. A range changes with the time of day."
+msgstr "Ціна за кВт·год. ПДВ включено, якщо оператор його вказав. Діапазон змінюється залежно від часу доби."

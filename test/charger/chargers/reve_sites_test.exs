@@ -48,9 +48,64 @@ defmodule Charger.Chargers.ReveSitesTest do
                id: "c1",
                type: "IEC_62196_T2_COMBO",
                current: "DC",
-               power_kw: 150.0
+               power_kw: 150.0,
+               rates: []
              }
            ]
+  end
+
+  test "keeps the energy prices of a connector and drops a reservation fee" do
+    [site] =
+      ReveSites.from_locations([
+        %{
+          "id" => "loc-1",
+          "evses" => [
+            %{
+              "connectors" => [
+                %{
+                  "id" => "c1",
+                  "power_type" => "AC_3_PHASE",
+                  "max_electric_power" => 6_900,
+                  "tariffs" => [
+                    %{
+                      "elements" => [
+                        %{
+                          "price_components" => [
+                            %{"type" => "ENERGY", "price" => 0.29, "vat" => 21}
+                          ],
+                          "restrictions" => %{
+                            "max_power" => 22,
+                            "start_time" => "07:00",
+                            "end_time" => "22:59"
+                          }
+                        },
+                        %{
+                          "price_components" => [
+                            %{"type" => "FLAT", "price" => 0.8, "vat" => 21}
+                          ],
+                          "restrictions" => %{"reservation" => "RESERVATION_EXPIRES"}
+                        },
+                        %{
+                          "price_components" => [
+                            %{"type" => "ENERGY", "price" => 8676.82, "vat" => 21}
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ])
+
+    assert [%{power_kw: 6.9, rates: [rate]}] = site.connectors
+    assert rate.net == 290
+    assert rate.vat == 21
+    assert rate.max_kw == 22.0
+    assert rate.start == 7 * 60
+    assert rate.stop == 22 * 60 + 59
   end
 
   test "one INE municipality code gets one readable name" do

@@ -313,6 +313,9 @@ defmodule ChargerWeb.CatalogLive do
             <span :if={is_integer(plug.watts)} class="fuel-price">
               {Charger.Chargers.format_power(plug.watts, @locale)}
             </span>
+            <span :if={plug.tariff} class="fuel-tariff" title={tariff_title()}>
+              {tariff_text(plug.tariff, @locale)}
+            </span>
           </span>
         </p>
       <% else %>
@@ -523,7 +526,7 @@ defmodule ChargerWeb.CatalogLive do
             id: point.id,
             lat: point.lat,
             lng: point.lng,
-            price: edge_value(point.price, result.fuel, locale),
+            price: map_price(point, result, locale),
             amount: point.price,
             tier: price_tier(point.price, result.median),
             brand: point.brand,
@@ -532,6 +535,27 @@ defmodule ChargerWeb.CatalogLive do
           }
         end)
     }
+  end
+
+  defp map_price(point, %{fuel: :charging}, locale) do
+    power = Charger.Chargers.format_power(point.price, locale)
+
+    case point.tariff do
+      %{} = tariff -> "#{power} · #{tariff_text(tariff, locale)}"
+      _ -> power
+    end
+  end
+
+  defp map_price(point, result, locale), do: edge_value(point.price, result.fuel, locale)
+
+  defp tariff_text(tariff, locale) do
+    gettext("%{price}/kWh", price: Charger.Chargers.format_tariff(tariff, locale))
+  end
+
+  defp tariff_title do
+    gettext(
+      "Price per kWh. VAT is included when the operator states it. A range changes with the time of day."
+    )
   end
 
   defp price_bounds(%{fuel: :charging}), do: {nil, nil}

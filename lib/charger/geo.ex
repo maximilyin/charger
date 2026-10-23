@@ -50,6 +50,7 @@ defmodule Charger.Geo do
           lat: lat,
           lng: lng,
           price: Map.get(station, :price),
+          tariff: Map.get(station, :tariff),
           brand: Map.get(station, :brand) || "",
           place: marker_place(station)
         }

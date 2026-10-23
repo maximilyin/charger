@@ -216,7 +216,8 @@ defmodule Charger.Chargers.ReveSites do
         id: text(connector["id"]),
         type: text(connector["standard"]),
         current: text(connector["power_type"]),
-        power_kw: kilowatts(connector["max_electric_power"])
+        power_kw: kilowatts(connector["max_electric_power"]),
+        rates: energy_rates(connector["tariffs"])
       }
     end
   end
@@ -233,6 +234,100 @@ defmodule Charger.Chargers.ReveSites do
   end
 
   defp kilowatts(_watts), do: nil
+
+  # Energy price bands of one connector. `net` is thousandths of a euro before
+  # VAT. A price above 5 euro is a bad value in the feed and is left out.
+  # Reservation fees are not the price of a charge, so those elements are left out.
+  defp energy_rates(tariffs) when is_list(tariffs) do
+    for tariff <- tariffs,
+        is_map(tariff),
+        element <- List.wrap(tariff["elements"]),
+        is_map(element),
+        restrictions = element["restrictions"] || %{},
+        is_map(restrictions),
+        not Map.has_key?(restrictions, "reservation"),
+        component <- List.wrap(element["price_components"]),
+        is_map(component),
+        component["type"] == "ENERGY",
+        net = euro_millis(component["price"]),
+        is_integer(net) do
+      %{
+        net: net,
+        vat: vat_percent(component["vat"]),
+        max_kw: kw_limit(restrictions["max_power"]),
+        min_kw: kw_limit(restrictions["min_power"]),
+        start: clock_minute(restrictions["start_time"]),
+        stop: clock_minute(restrictions["end_time"]),
+        days: weekdays(restrictions["day_of_week"])
+      }
+    end
+  end
+
+  defp energy_rates(_tariffs), do: []
+
+  @weekdays ~w(MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY)
+
+  defp weekdays(names) when is_list(names) do
+    names
+    |> Enum.map(fn name ->
+      Enum.find_index(@weekdays, &(String.upcase(to_string(name)) == &1))
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&(&1 + 1))
+    |> case do
+      [] -> nil
+      days -> days
+    end
+  end
+
+  defp weekdays(_names), do: nil
+
+  defp clock_minute(text) when is_binary(text) do
+    case Regex.run(~r/\A(\d{1,2}):(\d{2})/, String.trim(text)) do
+      [_, hour, minute] ->
+        hour = String.to_integer(hour)
+        minute = String.to_integer(minute)
+        if hour in 0..24 and minute in 0..59, do: hour * 60 + minute, else: nil
+
+      _ ->
+        nil
+    end
+  end
+
+  defp clock_minute(_text), do: nil
+
+  defp euro_millis(value) do
+    case decimal(value) do
+      price when is_number(price) and price >= 0 and price <= 5 -> round(price * 1000)
+      _ -> nil
+    end
+  end
+
+  defp vat_percent(value) do
+    case decimal(value) do
+      percent when is_number(percent) and percent >= 0 and percent <= 100 -> round(percent)
+      _ -> nil
+    end
+  end
+
+  defp kw_limit(value) do
+    case decimal(value) do
+      kw when is_number(kw) and kw > 0 -> kw / 1
+      _ -> nil
+    end
+  end
+
+  defp decimal(value) when is_float(value), do: value
+  defp decimal(value) when is_integer(value), do: value
+
+  defp decimal(value) when is_binary(value) do
+    case Float.parse(String.replace(String.trim(value), ",", ".")) do
+      {number, _rest} -> number
+      :error -> nil
+    end
+  end
+
+  defp decimal(_value), do: nil
 
   defp coordinates(%{"latitude" => latitude, "longitude" => longitude}) do
     {coordinate(latitude), coordinate(longitude)}

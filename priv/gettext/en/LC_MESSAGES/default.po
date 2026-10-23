@@ -221,3 +221,9 @@ msgstr "The charging catalog is empty."
 
 msgid "%{count} connectors"
 msgstr "%{count} connectors"
+
+msgid "%{price}/kWh"
+msgstr "%{price}/kWh"
+
+msgid "Price per kWh. VAT is included when the operator states it. A range changes with the time of day."
+msgstr "Price per kWh. VAT is included when the operator states it. A range changes with the time of day."

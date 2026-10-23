@@ -472,6 +472,11 @@ html[data-theme="dark"] .catalog-page {
   font-weight: 700;
 }
 
+.fuel-tariff {
+  color: var(--catalog-ink);
+  font-weight: 700;
+}
+
 .catalog-table .brand {
   font-weight: 650;
   letter-spacing: 0.01em;

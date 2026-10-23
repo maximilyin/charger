@@ -221,3 +221,9 @@ msgstr "El catálogo de recargas está vacío."
 
 msgid "%{count} connectors"
 msgstr "%{count} conectores"
+
+msgid "%{price}/kWh"
+msgstr "%{price}/kWh"
+
+msgid "Price per kWh. VAT is included when the operator states it. A range changes with the time of day."
+msgstr "Precio por kWh. El IVA está incluido cuando el operador lo indica. Un intervalo cambia según la hora."

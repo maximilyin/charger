@@ -7,6 +7,7 @@ defmodule Charger.Chargers do
   """
 
   alias Charger.Chargers.Cache
+  alias Charger.Chargers.Tariff
   alias Charger.Geo
 
   def snapshot do
@@ -28,13 +29,14 @@ defmodule Charger.Chargers do
     municipality = text(params["municipality"] || params[:municipality])
     q = text(params["q"] || params[:q]) |> String.downcase()
     origin = origin(params)
+    now = clock(params)
 
     matched =
       snapshot.sites
       |> filter_eq(:province, province)
       |> filter_eq(:municipality, municipality)
       |> filter_query(q)
-      |> Enum.map(&to_station/1)
+      |> Enum.map(&to_station(&1, now))
       |> sort_stations(origin)
 
     provinces =
@@ -87,6 +89,20 @@ defmodule Charger.Chargers do
     }
   end
 
+  def format_tariff(%{min: min, max: max}, locale) when min == max do
+    Charger.Prices.format_price(min, locale)
+  end
+
+  def format_tariff(%{min: min, max: max}, "en") do
+    "€#{euros(min)}–#{euros(max)}"
+  end
+
+  def format_tariff(%{min: min, max: max}, _locale) do
+    left = euros(min) |> String.replace(".", ",")
+    right = euros(max) |> String.replace(".", ",")
+    "#{left}–#{right} €"
+  end
+
   def format_power(nil, _locale), do: "—"
 
   def format_power(watts, locale) when is_integer(watts) and watts >= 0 do
@@ -112,8 +128,9 @@ defmodule Charger.Chargers do
     end
   end
 
-  defp to_station(site) do
+  defp to_station(site, now) do
     schedule = display_schedule(site)
+    plugs = plugs(site.connectors, now)
 
     %{
       id: site.id,
@@ -127,7 +144,8 @@ defmodule Charger.Chargers do
       latitude: site.latitude,
       longitude: site.longitude,
       price: max_watts(site.connectors),
-      plugs: plugs(site.connectors),
+      plugs: plugs,
+      tariff: Enum.reduce(plugs, nil, &Tariff.merge(&1.tariff, &2)),
       prices: %{},
       open: if(schedule == "24H", do: :open_24h, else: :unknown),
       distance_m: nil
@@ -159,14 +177,19 @@ defmodule Charger.Chargers do
     end
   end
 
-  defp plugs(connectors) do
+  defp plugs(connectors, now) do
     connectors
     |> Enum.reduce(%{}, fn connector, acc ->
-      kind = current_kind(connector)
-      power = watts(connector)
-      Map.update(acc, {kind, power}, 1, &(&1 + 1))
+      key = {current_kind(connector), watts(connector)}
+      tariff = Tariff.for_connector(connector, now)
+
+      Map.update(acc, key, %{count: 1, tariff: tariff}, fn plug ->
+        %{plug | count: plug.count + 1, tariff: Tariff.merge(plug.tariff, tariff)}
+      end)
     end)
-    |> Enum.map(fn {{kind, power}, count} -> %{kind: kind, watts: power, count: count} end)
+    |> Enum.map(fn {{kind, power}, plug} ->
+      %{kind: kind, watts: power, count: plug.count, tariff: plug.tariff}
+    end)
     |> Enum.reject(&(&1.kind == :other and is_nil(&1.watts)))
     |> Enum.sort_by(fn plug -> {plug.kind != :dc, is_nil(plug.watts), -(plug.watts || 0)} end)
   end
@@ -257,6 +280,19 @@ defmodule Charger.Chargers do
     else
       _ -> nil
     end
+  end
+
+  defp clock(params) do
+    case params["now"] || params[:now] do
+      %DateTime{} = now -> now
+      _ -> DateTime.utc_now()
+    end
+  end
+
+  defp euros(millis) do
+    whole = div(millis, 1000)
+    frac = millis |> rem(1000) |> Integer.to_string() |> String.pad_leading(3, "0")
+    "#{whole}.#{frac}"
   end
 
   defp number(value) when is_float(value), do: {value, ""}
